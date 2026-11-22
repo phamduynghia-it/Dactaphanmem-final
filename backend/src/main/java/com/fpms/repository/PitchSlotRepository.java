@@ -12,10 +12,14 @@ import java.util.List;
 @Repository
 public interface PitchSlotRepository extends JpaRepository<PitchSlot, Long> {
 
-    List<PitchSlot> findBySlotDate(LocalDate slotDate);
+    List<PitchSlot> findByDateslot(LocalDate dateslot);
 
-    @Query("SELECT s FROM PitchSlot s WHERE s.slotDate = :date AND s.status = 'AVAILABLE'")
+    default List<PitchSlot> findBySlotDate(LocalDate slotDate) {
+        return findByDateslot(slotDate);
+    }
+
+    @Query("SELECT s FROM PitchSlot s WHERE s.dateslot = :date AND s.status = 'AVAILABLE'")
     List<PitchSlot> findAvailableSlotsByDate(@Param("date") LocalDate date);
 
-    List<PitchSlot> findByPitchIdAndSlotDate(Long pitchId, LocalDate slotDate);
+    List<PitchSlot> findByPitchIdAndDateslot(Long pitchId, LocalDate dateslot);
 }

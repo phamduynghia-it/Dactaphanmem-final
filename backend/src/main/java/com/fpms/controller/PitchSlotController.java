@@ -1,8 +1,8 @@
 package com.fpms.controller;
 
+import com.fpms.dto.response.ApiResponse;
 import com.fpms.dto.response.PitchSlotResponse;
-import com.fpms.entity.PitchSlot;
-import com.fpms.repository.PitchSlotRepository;
+import com.fpms.service.PitchSlotService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -12,38 +12,35 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/pitch-slots")
 @RequiredArgsConstructor
-@Tag(name = "Pitch Slot Controller", description = "APIs tra cứu lịch ca đá theo ngày")
+@Tag(name = "1. Quản lý Ca Đá (Pitch Slots)", description = "APIs tra cứu và quản lý lịch ca đá theo ngày")
 public class PitchSlotController {
 
-    private final PitchSlotRepository pitchSlotRepository;
+    private final PitchSlotService pitchSlotService;
 
     @GetMapping
-    @Operation(summary = "Lấy danh sách ca đá theo ngày (mặc định là hôm nay)")
-    public ResponseEntity<List<PitchSlotResponse>> getSlotsByDate(
+    @Operation(summary = "Lấy danh sách ca đá theo ngày (mặc định hôm nay)")
+    public ResponseEntity<ApiResponse<List<PitchSlotResponse>>> getSlotsByDate(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        
-        LocalDate queryDate = (date != null) ? date : LocalDate.now();
-        List<PitchSlot> slots = pitchSlotRepository.findBySlotDate(queryDate);
+        List<PitchSlotResponse> responses = pitchSlotService.getSlotsByDate(date);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách ca đá thành công", responses));
+    }
 
-        List<PitchSlotResponse> responses = slots.stream().map(slot -> PitchSlotResponse.builder()
-                .id(slot.getId())
-                .pitchId(slot.getPitch() != null ? slot.getPitch().getId() : null)
-                .pitchName(slot.getPitch() != null ? slot.getPitch().getName() : "Sân bóng")
-                .timeSlotId(slot.getTimeSlot() != null ? slot.getTimeSlot().getId() : null)
-                .startTime(slot.getTimeSlot() != null ? slot.getTimeSlot().getStartTime() : null)
-                .endTime(slot.getTimeSlot() != null ? slot.getTimeSlot().getEndTime() : null)
-                .slotDate(slot.getSlotDate())
-                .price(slot.getPrice())
-                .status(slot.getStatus())
-                .peakHour(slot.getTimeSlot() != null && slot.getTimeSlot().isPeakHour())
-                .build()
-        ).collect(Collectors.toList());
+    @GetMapping("/{id}")
+    @Operation(summary = "Lấy chi tiết một ca đá theo ID")
+    public ResponseEntity<ApiResponse<PitchSlotResponse>> getSlotById(@PathVariable Long id) {
+        PitchSlotResponse response = pitchSlotService.getSlotById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin ca đá thành công", response));
+    }
 
-        return ResponseEntity.ok(responses);
+    @GetMapping("/available")
+    @Operation(summary = "Lấy danh sách các ca đá còn trống theo ngày")
+    public ResponseEntity<ApiResponse<List<PitchSlotResponse>>> getAvailableSlots(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        List<PitchSlotResponse> responses = pitchSlotService.getAvailableSlots(date);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách ca đá còn trống thành công", responses));
     }
 }

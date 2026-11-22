@@ -18,7 +18,7 @@ public class ServiceItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
 
     @Column(name = "unit", nullable = false, length = 20)
@@ -34,6 +34,6 @@ public class ServiceItem {
     @Builder.Default
     private boolean isActive = true;
 
-    @Column(name = "description")
+    @Column(name = "description", length = 255)
     private String description;
 }

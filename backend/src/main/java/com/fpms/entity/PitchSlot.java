@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "pitch_slots", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"pitch_id", "timeslot_id", "slot_date"})
+    @UniqueConstraint(name = "uk_pitch_slot_date", columnNames = {"pitch_id", "timeslot_id", "dateslot"})
 })
 @Getter
 @Setter
@@ -30,18 +30,28 @@ public class PitchSlot {
     @JoinColumn(name = "timeslot_id", nullable = false)
     private TimeSlot timeSlot;
 
-    @Column(name = "slot_date", nullable = false)
-    private LocalDate slotDate;
-
-    @Column(name = "price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
+    @Column(name = "dateslot", nullable = false)
+    private LocalDate dateslot;
 
     @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
     private String status = "AVAILABLE"; // AVAILABLE, HOLDING, BOOKED, MAINTENANCE, CLOSED
 
+    @Column(name = "price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal price;
+
     @Column(name = "hold_expires_at")
     private LocalDateTime holdExpiresAt;
+
+    // Backward-compatibility getter & setter for existing code
+    @Transient
+    public LocalDate getSlotDate() {
+        return this.dateslot;
+    }
+
+    public void setSlotDate(LocalDate slotDate) {
+        this.dateslot = slotDate;
+    }
 
     // === DOMAIN METHODS ===
     public boolean isAvailable() {
