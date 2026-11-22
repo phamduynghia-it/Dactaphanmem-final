@@ -92,13 +92,6 @@ export interface PaymentTransactionResponse {
   bookingCode?: string;
   amount: number;
   paymentType: string;
-  paymentMethodId?: number;
-  paymentMethodName?: string;
-  paymentMethodCode?: string;
-  bookingId?: number;
-  bookingCode?: string;
-  paymentType: string;
-  amount: number;
   status: string;
 }
 

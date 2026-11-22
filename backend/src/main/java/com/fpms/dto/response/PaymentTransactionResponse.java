@@ -13,11 +13,10 @@ import java.math.BigDecimal;
 public class PaymentTransactionResponse {
     private Long id;
     private String transactionCode;
-    private String paymentMethodCode;
     private Long bookingId;
     private String bookingCode;
-    private String paymentType;
     private BigDecimal amount;
+    private String paymentType;
     private String status;
 
     public static PaymentTransactionResponse fromEntity(PaymentTransaction tx) {
