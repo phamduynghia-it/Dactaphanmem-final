@@ -1,0 +1,15 @@
+#!/bin/sh
+MAVEN_VERSION="3.9.9"
+MAVEN_HOME="$HOME/.m2/wrapper/dists/apache-maven-$MAVEN_VERSION"
+MAVEN_CMD="$MAVEN_HOME/bin/mvn"
+
+if [ ! -f "$MAVEN_CMD" ]; then
+    echo "[Maven Wrapper] Downloading Apache Maven $MAVEN_VERSION..."
+    mkdir -p "$HOME/.m2/wrapper/dists"
+    curl -fsSL -o /tmp/mvn.zip "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$MAVEN_VERSION/apache-maven-$MAVEN_VERSION-bin.zip"
+    unzip -q /tmp/mvn.zip -d "$HOME/.m2/wrapper/dists"
+    rm -f /tmp/mvn.zip
+    chmod +x "$MAVEN_CMD"
+fi
+
+exec "$MAVEN_CMD" "$@"

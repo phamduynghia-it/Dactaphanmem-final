@@ -1,0 +1,153 @@
+// Sơ đồ CSDL Đặt Sân Bóng - Hướng 2 (1 Booking = 1 Slot sân + Dịch vụ đi kèm)
+// Dùng cho: https://dbdiagram.io/
+
+Table roles {
+  id int [pk, increment]
+  role_name varchar [not null]
+  description text
+}
+
+Table users {
+  id int [pk, increment]
+  email varchar [unique, not null]
+  phone_number varchar [unique, not null]
+  pass_word varchar [not null]
+  full_name varchar [not null]
+  status varchar [not null]
+  role_id int [ref: > roles.id]
+}
+
+Table password_resets {
+  id int [pk, increment]
+  user_id int [ref: > users.id]
+  email varchar [not null]
+  otp_code varchar [not null]
+  expires_at datetime [not null]
+}
+
+Table holidays {
+  id int [pk, increment]
+  holiday_date date [unique, not null]
+  holiday_name varchar [not null]
+  description text
+}
+
+Table pitch_types {
+  id int [pk, increment]
+  name varchar [not null]
+  player_capacity int [not null]
+  description text
+}
+
+Table price_matrices {
+  id int [pk, increment]
+  pitch_type_id int [ref: > pitch_types.id]
+  day_type varchar [note: "WEEKDAY, WEEKEND, HOLIDAY"]
+  is_peak_hour boolean [not null]
+  price decimal [not null]
+}
+
+Table pitches {
+  id int [pk, increment]
+  pitch_type_id int [ref: > pitch_types.id]
+  name varchar [not null]
+  status varchar [note: "ACTIVE, MAINTENANCE"]
+  description text
+}
+
+Table time_slots {
+  id int [pk, increment]
+  start_time time [not null]
+  end_time time [not null]
+  is_peak_hour boolean [not null]
+  is_active boolean [not null]
+}
+
+// BẢNG MỚI: Quản lý lịch từng slot của từng sân theo từng ngày
+Table pitch_slots {
+  id int [pk, increment]
+  pitch_id int [ref: > pitches.id]
+  timeslot_id int [ref: > time_slots.id]
+  slot_date date [not null]
+  price decimal [not null, note: "Snapshot giá theo ngày/khung giờ"]
+  status varchar [not null, note: "AVAILABLE, HOLDING, BOOKED, MAINTENANCE, CLOSED"]
+  hold_expires_at datetime [null, note: "Thời hạn giữ chỗ tạm thời khi thanh toán"]
+
+  indexes {
+    (pitch_id, timeslot_id, slot_date) [unique]
+  }
+}
+
+// BẢNG ĐIỀU CHỈNH: 1 Booking gắn trực tiếp với 1 slot sân
+Table bookings {
+  id int [pk, increment]
+  booking_code varchar [unique, not null]
+  pitch_slot_id int [ref: > pitch_slots.id, note: "Trỏ trực tiếp đến slot sân được đặt"]
+  customer_id int [ref: > users.id, null, note: "Khách có tài khoản"]
+  staff_id int [ref: > users.id, null, note: "Nhân viên tạo hộ nếu đặt tại quầy"]
+  guest_name varchar [null]
+  guest_phone varchar [null]
+  total_pitch_amount decimal [not null, note: "Snapshot tiền sân lúc đặt"]
+  total_service_amount decimal [not null, default: 0, note: "Tổng tiền dịch vụ"]
+  total_amount decimal [not null, default: 0, note: "Tiền sân + Tiền dịch vụ"]
+  deposit_amount decimal [not null, default: 0]
+  booking_type varchar [not null, note: "ONLINE, DIRECT, TOURNAMENT"]
+  status varchar [not null, note: "PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED"]
+  customer_note text
+  created_at datetime [default: `now()`]
+}
+
+// BẢNG MỚI: Danh mục dịch vụ (Nước uống, bóng, áo bib, trọng tài...)
+Table services {
+  id int [pk, increment]
+  name varchar [not null]
+  unit varchar [not null, note: "Chai, Lon, Bộ, Quả, Trận..."]
+  price decimal [not null]
+  category varchar [note: "DRINK, EQUIPMENT, REFEREE, OTHER"]
+  is_active boolean [default: true]
+  description text
+}
+
+// BẢNG MỚI: Chi tiết dịch vụ gọi kèm theo đơn đặt sân
+Table booking_services {
+  id int [pk, increment]
+  booking_id int [ref: > bookings.id]
+  service_id int [ref: > services.id]
+  quantity int [not null, default: 1]
+  unit_price decimal [not null, note: "Snapshot đơn giá lúc đặt"]
+  total_price decimal [not null, note: "quantity * unit_price"]
+}
+
+Table payment_method {
+  id int [pk, increment]
+  code varchar [unique, not null]
+  name varchar [not null]
+  is_maintenance boolean [default: false]
+  is_active boolean [default: true]
+  description text
+  icon_url varchar
+}
+
+Table payment_transaction {
+  id int [pk, increment]
+  transaction_code varchar [unique, not null]
+  booking_id int [ref: > bookings.id]
+  payment_method_id int [ref: > payment_method.id]
+  payment_type varchar [note: "DEPOSIT, FULL, REMAINING"]
+  amount decimal [not null]
+  status varchar [note: "PENDING, SUCCESS, FAILED"]
+  created_at datetime [default: `now()`]
+}
+
+Table booking_cancellations {
+  id int [pk, increment]
+  booking_id int [unique, ref: > bookings.id]
+  requested_by int [ref: > users.id]
+  reason text [not null]
+  refund_amount decimal [default: 0]
+  refund_status varchar [not null]
+  requested_at datetime [default: `now()`]
+  rejection_reason text
+  approved_by int [ref: > users.id, null]
+  processed_at datetime [null]
+}

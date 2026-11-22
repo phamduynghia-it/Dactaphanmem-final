@@ -1,0 +1,72 @@
+package com.fpms.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "pitch_slots", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"pitch_id", "timeslot_id", "slot_date"})
+})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PitchSlot {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pitch_id", nullable = false)
+    private Pitch pitch;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "timeslot_id", nullable = false)
+    private TimeSlot timeSlot;
+
+    @Column(name = "slot_date", nullable = false)
+    private LocalDate slotDate;
+
+    @Column(name = "price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal price;
+
+    @Column(name = "status", nullable = false, length = 50)
+    @Builder.Default
+    private String status = "AVAILABLE"; // AVAILABLE, HOLDING, BOOKED, MAINTENANCE, CLOSED
+
+    @Column(name = "hold_expires_at")
+    private LocalDateTime holdExpiresAt;
+
+    // === DOMAIN METHODS ===
+    public boolean isAvailable() {
+        if ("AVAILABLE".equalsIgnoreCase(this.status)) {
+            return true;
+        }
+        // Nếu đang HOLDING nhưng đã quá hạn giữ chỗ thì tự động cho phép đặt lại
+        if ("HOLDING".equalsIgnoreCase(this.status) && holdExpiresAt != null && LocalDateTime.now().isAfter(holdExpiresAt)) {
+            return true;
+        }
+        return false;
+    }
+
+    public void holdSlot(int expireMinutes) {
+        this.status = "HOLDING";
+        this.holdExpiresAt = LocalDateTime.now().plusMinutes(expireMinutes);
+    }
+
+    public void releaseSlot() {
+        this.status = "AVAILABLE";
+        this.holdExpiresAt = null;
+    }
+
+    public void bookSlot() {
+        this.status = "BOOKED";
+        this.holdExpiresAt = null;
+    }
+}

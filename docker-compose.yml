@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # =======================================================
+  # POSTGRESQL DATABASE
+  # =======================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: fpms-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: fpms_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - fpms-network
+
+  # =======================================================
+  # PGADMIN 4 (Giao diện web trực quan quản lý PostgreSQL)
+  # Truy cập: http://localhost:5050
+  # Email: admin@fpms.com | Pass: admin123
+  # =======================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: fpms-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@fpms.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - fpms-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  fpms-network:
+    driver: bridge

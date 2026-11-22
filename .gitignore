@@ -1,0 +1,28 @@
+# Word documents & drafts (theo yeu cau bo lai)
+word/
+*.docx
+*.doc
+
+# Node.js & Frontend dependencies/build
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.local
+
+# Java & Spring Boot Maven build
+target/
+**/target/
+*.class
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+*.suo
+*.user
+
+# Operating System files
+Thumbs.db
+Desktop.ini
+.DS_Store
