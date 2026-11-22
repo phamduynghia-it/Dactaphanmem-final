@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,33 +23,19 @@ public class Booking {
     @Column(name = "booking_code", nullable = false, unique = true, length = 50)
     private String bookingCode;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pitch_slot_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pitch_slot_id", nullable = false)
     private PitchSlot pitchSlot;
 
-    @Column(name = "customer_id")
-    private Long customerId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private User customer;
 
-    @Column(name = "staff_id")
-    private Long staffId;
-
-    @Column(name = "guest_name", length = 100)
+    @Column(name = "guest_name", nullable = false, length = 100)
     private String guestName;
 
-    @Column(name = "guest_phone", length = 20)
+    @Column(name = "guest_phone", nullable = false, length = 20)
     private String guestPhone;
-
-    @Column(name = "total_pitch_amount", nullable = false, precision = 12, scale = 2)
-    @Builder.Default
-    private BigDecimal totalPitchAmount = BigDecimal.ZERO;
-
-    @Column(name = "total_service_amount", nullable = false, precision = 12, scale = 2)
-    @Builder.Default
-    private BigDecimal totalServiceAmount = BigDecimal.ZERO;
-
-    @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
-    @Builder.Default
-    private BigDecimal totalAmount = BigDecimal.ZERO;
 
     @Column(name = "deposit_amount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
@@ -60,20 +45,34 @@ public class Booking {
     @Builder.Default
     private String bookingType = "ONLINE"; // ONLINE, DIRECT, TOURNAMENT
 
+    @Column(name = "total_pitch_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal totalPitchAmount = BigDecimal.ZERO;
+
     @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
     private String status = "PENDING_PAYMENT"; // PENDING_PAYMENT, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
 
-    @Column(name = "customer_note")
-    private String customerNote;
-
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "total_service_amount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private BigDecimal totalServiceAmount = BigDecimal.ZERO;
+
+    @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "customer_note", columnDefinition = "TEXT")
+    private String customerNote;
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BookingServiceItem> services = new ArrayList<>();
+
+    // Backward compatibility helper
+    @Transient
+    public Long getCustomerId() {
+        return this.customer != null ? this.customer.getId() : null;
+    }
 
     // === DOMAIN LOGIC METHODS ===
     public BigDecimal calculateTotalAmount() {

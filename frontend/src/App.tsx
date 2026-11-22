@@ -5,6 +5,7 @@ import { PitchSlotsView } from './pages/admin/PitchSlotsView';
 import { BookingsView } from './pages/admin/BookingsView';
 import { ServicesView } from './pages/admin/ServicesView';
 import { GenericTableView } from './pages/admin/GenericTableView';
+import { PriceMatrixView } from './pages/admin/PriceMatrixView';
 import { ClientBookingView } from './pages/client/ClientBookingView';
 
 export default function App() {
@@ -68,6 +69,7 @@ export default function App() {
             title="Giao Dịch Thanh Toán"
             subtitle="Theo dõi lịch sử giao dịch tiền cọc, chuyển khoản và thanh toán tại quầy"
             tableName="payment_transaction"
+            apiEndpoint="/payment-transactions"
           />
         )}
         {activeTab === 'users' && (
@@ -75,6 +77,7 @@ export default function App() {
             title="Quản Lý Người Dùng"
             subtitle="Danh sách khách hàng thành viên và phân quyền nhân viên"
             tableName="users"
+            apiEndpoint="/users"
           />
         )}
         {activeTab === 'pitches' && (
@@ -82,6 +85,7 @@ export default function App() {
             title="Quản Lý Sân Bóng"
             subtitle="Danh mục các sân bóng mini, trạng thái hoạt động và cơ sở vật chất"
             tableName="pitches"
+            apiEndpoint="/pitches"
           />
         )}
         {activeTab === 'timeslots' && (
@@ -89,15 +93,10 @@ export default function App() {
             title="Khung Giờ Ca Đá"
             subtitle="Cấu hình danh sách các ca đá cố định và quy định giờ vàng/cao điểm"
             tableName="time_slots"
+            apiEndpoint="/time-slots"
           />
         )}
-        {activeTab === 'pricing' && (
-          <GenericTableView
-            title="Bảng Giá Sân Bóng"
-            subtitle="Ma trận định giá theo loại sân (sân 5, sân 7), ngày thường, cuối tuần và ngày lễ"
-            tableName="price_matrices"
-          />
-        )}
+        {activeTab === 'pricing' && <PriceMatrixView />}
       </AdminLayout>
     </div>
   );

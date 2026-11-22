@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axiosClient from '../../api/axiosClient';
 import { Booking } from '../../types';
 
 export const BookingsView: React.FC = () => {
@@ -63,7 +64,19 @@ export const BookingsView: React.FC = () => {
   ];
 
   useEffect(() => {
-    setBookings(mockBookings as any);
+    const fetchBookings = async () => {
+      try {
+        const data = await axiosClient.get<any, Booking[]>('/bookings');
+        if (data && data.length > 0) {
+          setBookings(data);
+        } else {
+          setBookings(mockBookings as any);
+        }
+      } catch (err) {
+        setBookings(mockBookings as any);
+      }
+    };
+    fetchBookings();
   }, []);
 
   return (
