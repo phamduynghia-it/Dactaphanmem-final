@@ -76,6 +76,7 @@ export const GenericTableView: React.FC<GenericTableViewProps> = ({
               <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-semibold border-b border-gray-200">
                 <tr>
                   {Object.keys(items[0]).map((key) => (
+                  {Object.keys(items[0]).slice(0, 6).map((key) => (
                     <th key={key} className="px-6 py-4">{key}</th>
                   ))}
                   <th className="px-6 py-4 text-right">Thao tác</th>
@@ -85,9 +86,7 @@ export const GenericTableView: React.FC<GenericTableViewProps> = ({
                 {items.map((row, idx) => (
                   <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
                     {Object.keys(items[0]).map((key) => {
-                      const val = row[key];
                       const displayVal = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val ?? '');
-                      return (
                         <td key={key} className="px-6 py-4">
                           {key.toLowerCase().includes('price') || key.toLowerCase().includes('amount') ? (
                             <span className="font-bold text-emerald-700">
