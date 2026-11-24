@@ -1,5 +1,6 @@
 package com.fpms.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fpms.entity.PriceMatrix;
 import lombok.*;
 
@@ -12,7 +13,15 @@ import java.math.BigDecimal;
 @Builder
 public class PriceMatrixResponse {
     private Long id;
+
+    @JsonProperty("isPeakHour")
     private boolean isPeakHour;
+
+    @JsonProperty("peakHour")
+    public boolean getPeakHour() {
+        return this.isPeakHour;
+    }
+
     private Long pitchTypeId;
     private String pitchTypeName;
     private String dayType;

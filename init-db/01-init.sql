@@ -138,11 +138,21 @@ CREATE TABLE price_matrices (
 );
 
 INSERT INTO price_matrices (is_peak_hour, pitch_type_id, day_type, price) VALUES
+    -- Sân 5 người (pitch_type_id = 1): Ngày thường < Cuối tuần < Ngày lễ
     (FALSE, 1, 'WEEKDAY', 200000.00),
-    (TRUE, 1, 'WEEKDAY', 350000.00),
-    (TRUE, 1, 'WEEKEND', 400000.00),
-    (FALSE, 2, 'WEEKDAY', 400000.00),
-    (TRUE, 2, 'WEEKEND', 600000.00);
+    (TRUE, 1, 'WEEKDAY', 300000.00),
+    (FALSE, 1, 'WEEKEND', 350000.00),
+    (TRUE, 1, 'WEEKEND', 450000.00),
+    (FALSE, 1, 'HOLIDAY', 500000.00),
+    (TRUE, 1, 'HOLIDAY', 600000.00),
+
+    -- Sân 7 người (pitch_type_id = 2): Ngày thường < Cuối tuần < Ngày lễ
+    (FALSE, 2, 'WEEKDAY', 350000.00),
+    (TRUE, 2, 'WEEKDAY', 500000.00),
+    (FALSE, 2, 'WEEKEND', 550000.00),
+    (TRUE, 2, 'WEEKEND', 700000.00),
+    (FALSE, 2, 'HOLIDAY', 750000.00),
+    (TRUE, 2, 'HOLIDAY', 900000.00);
 
 CREATE TABLE holidays (
     id SERIAL PRIMARY KEY,

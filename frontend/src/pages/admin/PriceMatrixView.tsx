@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, 
-  Sun, 
-  Gift, 
-  Zap, 
-  Clock, 
-  MapPin, 
-  ChevronDown, 
+import {
+  Calendar,
+  Sun,
+  Gift,
+  Zap,
+  Clock,
+  MapPin,
+  ChevronDown,
   CheckCircle2
 } from 'lucide-react';
 import { adminApi } from '../../api/adminApi';
 import { HolidayResponse, PitchTypeResponse, PriceMatrixResponse } from '../../types';
+import { formatDate } from '../../utils/dateUtils';
 
 interface MatrixRowState {
   normalPrice: number;
@@ -20,13 +21,13 @@ interface MatrixRowState {
 export const PriceMatrixView: React.FC = () => {
   // Types & State
   const [pitchTypes, setPitchTypes] = useState<PitchTypeResponse[]>([]);
-  const [selectedTypeId, setSelectedTypeId] = useState<number>(1);
+  const [selectedTypeId, setSelectedTypeId] = useState<number>(0);
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
 
   // Price Matrix values for 3 day types
-  const [weekday, setWeekday] = useState<MatrixRowState>({ normalPrice: 550000, peakPrice: 600000 });
-  const [weekend, setWeekend] = useState<MatrixRowState>({ normalPrice: 200000, peakPrice: 400000 });
-  const [holidayPrice, setHolidayPrice] = useState<MatrixRowState>({ normalPrice: 500000, peakPrice: 700000 });
+  const [weekday, setWeekday] = useState<MatrixRowState>({ normalPrice: 0, peakPrice: 0 });
+  const [weekend, setWeekend] = useState<MatrixRowState>({ normalPrice: 0, peakPrice: 0 });
+  const [holidayPrice, setHolidayPrice] = useState<MatrixRowState>({ normalPrice: 0, peakPrice: 0 });
 
   // Holiday list (read-only view)
   const [holidays, setHolidays] = useState<HolidayResponse[]>([]);
@@ -40,18 +41,11 @@ export const PriceMatrixView: React.FC = () => {
           setPitchTypes(types);
           setSelectedTypeId(types[0].id);
         } else {
-          setPitchTypes([
-            { id: 1, name: 'Sân 5 người', playerCapacity: 10 },
-            { id: 2, name: 'Sân 7 người', playerCapacity: 14 },
-          ]);
-          setSelectedTypeId(1);
+          setPitchTypes([]);
         }
       } catch (err) {
-        console.warn('Fallback pitch types used', err);
-        setPitchTypes([
-          { id: 1, name: 'Sân 5 người', playerCapacity: 10 },
-          { id: 2, name: 'Sân 7 người', playerCapacity: 14 },
-        ]);
+        console.warn('Could not load pitch types', err);
+        setPitchTypes([]);
       }
     };
     loadPitchTypes();
@@ -64,20 +58,25 @@ export const PriceMatrixView: React.FC = () => {
       try {
         const data = await adminApi.getPriceMatricesByPitchType(selectedTypeId);
         if (Array.isArray(data) && data.length > 0) {
-          let w = { normalPrice: 550000, peakPrice: 600000 };
-          let we = { normalPrice: 200000, peakPrice: 400000 };
-          let h = { normalPrice: 500000, peakPrice: 700000 };
+          let w = { normalPrice: 0, peakPrice: 0 };
+          let we = { normalPrice: 0, peakPrice: 0 };
+          let h = { normalPrice: 0, peakPrice: 0 };
 
           data.forEach((pm: PriceMatrixResponse) => {
             const dt = (pm.dayType || '').toUpperCase();
+            // Hỗ trợ cả isPeakHour và peakHour (do Jackson JavaBean getter serialization)
+            const isPeak = pm.isPeakHour !== undefined && pm.isPeakHour !== null
+              ? Boolean(pm.isPeakHour)
+              : Boolean((pm as any).peakHour);
+
             if (dt === 'WEEKDAY') {
-              if (pm.isPeakHour) w.peakPrice = Number(pm.price);
+              if (isPeak) w.peakPrice = Number(pm.price);
               else w.normalPrice = Number(pm.price);
             } else if (dt === 'WEEKEND') {
-              if (pm.isPeakHour) we.peakPrice = Number(pm.price);
+              if (isPeak) we.peakPrice = Number(pm.price);
               else we.normalPrice = Number(pm.price);
             } else if (dt === 'HOLIDAY') {
-              if (pm.isPeakHour) h.peakPrice = Number(pm.price);
+              if (isPeak) h.peakPrice = Number(pm.price);
               else h.normalPrice = Number(pm.price);
             }
           });
@@ -85,9 +84,16 @@ export const PriceMatrixView: React.FC = () => {
           setWeekday(w);
           setWeekend(we);
           setHolidayPrice(h);
+        } else {
+          setWeekday({ normalPrice: 0, peakPrice: 0 });
+          setWeekend({ normalPrice: 0, peakPrice: 0 });
+          setHolidayPrice({ normalPrice: 0, peakPrice: 0 });
         }
       } catch (err) {
         console.warn('Could not load price matrices for type', selectedTypeId, err);
+        setWeekday({ normalPrice: 0, peakPrice: 0 });
+        setWeekend({ normalPrice: 0, peakPrice: 0 });
+        setHolidayPrice({ normalPrice: 0, peakPrice: 0 });
       }
     };
     loadMatrices();
@@ -113,7 +119,7 @@ export const PriceMatrixView: React.FC = () => {
     return Number(val || 0).toLocaleString('vi-VN');
   };
 
-  const selectedPitchTypeName = pitchTypes.find((t) => t.id === selectedTypeId)?.name || 'Sân 5 người';
+  const selectedPitchTypeName = pitchTypes.find((t) => t.id === selectedTypeId)?.name || (pitchTypes.length > 0 ? pitchTypes[0].name : 'Chưa có loại sân');
 
   return (
     <div className="space-y-6">
@@ -154,11 +160,10 @@ export const PriceMatrixView: React.FC = () => {
                         setSelectedTypeId(t.id);
                         setIsTypeDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors ${
-                        selectedTypeId === t.id
+                      className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors ${selectedTypeId === t.id
                           ? 'bg-emerald-50 text-emerald-800 font-semibold'
                           : 'text-gray-700 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <span>{t.name}</span>
                       {selectedTypeId === t.id && (
@@ -310,10 +315,7 @@ export const PriceMatrixView: React.FC = () => {
                 </div>
               ) : (
                 holidays.map((h) => {
-                  const dateParts = (h.holidayDate || '').split('-');
-                  const formattedDate = dateParts.length === 3 
-                    ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` 
-                    : h.holidayDate;
+                  const formattedDate = formatDate(h.holidayDate);
 
                   return (
                     <div
