@@ -1,5 +1,6 @@
 package com.fpms.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fpms.entity.PitchSlot;
 import lombok.*;
 
@@ -25,7 +26,14 @@ public class PitchSlotResponse {
     private LocalDate slotDate; // Alias
     private BigDecimal price;
     private String status;
+    @JsonProperty("peakHour")
     private boolean peakHour;
+
+    @JsonProperty("isPeakHour")
+    public boolean isPeakHour() {
+        return this.peakHour;
+    }
+
     private LocalDateTime holdExpiresAt;
 
     public static PitchSlotResponse fromEntity(PitchSlot slot) {

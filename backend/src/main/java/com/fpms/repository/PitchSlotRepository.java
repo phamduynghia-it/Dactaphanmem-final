@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PitchSlotRepository extends JpaRepository<PitchSlot, Long> {
@@ -22,4 +23,10 @@ public interface PitchSlotRepository extends JpaRepository<PitchSlot, Long> {
     List<PitchSlot> findAvailableSlotsByDate(@Param("date") LocalDate date);
 
     List<PitchSlot> findByPitchIdAndDateslot(Long pitchId, LocalDate dateslot);
+
+    @Query("SELECT ps FROM PitchSlot ps WHERE ps.pitch.id = :pitchId AND ps.timeSlot.id = :timeSlotId AND ps.dateslot = :dateslot")
+    Optional<PitchSlot> findByPitchAndTimeSlotAndDate(
+            @Param("pitchId") Long pitchId,
+            @Param("timeSlotId") Long timeSlotId,
+            @Param("dateslot") LocalDate dateslot);
 }

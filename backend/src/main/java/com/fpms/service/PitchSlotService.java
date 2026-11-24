@@ -9,4 +9,5 @@ public interface PitchSlotService {
     List<PitchSlotResponse> getSlotsByDate(LocalDate date);
     PitchSlotResponse getSlotById(Long id);
     List<PitchSlotResponse> getAvailableSlots(LocalDate date);
+    int generateSlots(LocalDate startDate, LocalDate endDate);
 }

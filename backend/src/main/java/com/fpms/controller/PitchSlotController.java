@@ -43,4 +43,16 @@ public class PitchSlotController {
         List<PitchSlotResponse> responses = pitchSlotService.getAvailableSlots(date);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách ca đá còn trống thành công", responses));
     }
+
+    @PostMapping("/generate")
+    @Operation(summary = "Tự động sinh lịch ca đá cho N ngày tới theo ma trận giá")
+    public ResponseEntity<ApiResponse<String>> generateSlots(
+            @RequestParam(defaultValue = "30") int days) {
+        LocalDate startDate = LocalDate.now();
+        LocalDate endDate = startDate.plusDays(days);
+        int generatedCount = pitchSlotService.generateSlots(startDate, endDate);
+        return ResponseEntity.ok(ApiResponse.success(
+                String.format("Đã sinh/cập nhật thành công ca đá từ ngày %s đến %s (tổng cộng %d ca mới được tạo)", startDate, endDate, generatedCount),
+                null));
+    }
 }

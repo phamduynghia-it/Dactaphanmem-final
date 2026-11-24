@@ -2,6 +2,7 @@ package com.fpms.config;
 
 import com.fpms.entity.*;
 import com.fpms.repository.*;
+import com.fpms.service.PitchSlotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 @Configuration
 @RequiredArgsConstructor
@@ -22,6 +24,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ServiceItemRepository serviceItemRepository;
     private final PriceMatrixRepository priceMatrixRepository;
     private final HolidayRepository holidayRepository;
+    private final PitchSlotService pitchSlotService;
 
     @Override
     public void run(String... args) throws Exception {
@@ -54,23 +57,36 @@ public class DataInitializer implements CommandLineRunner {
             ));
         }
 
-        // 3. Khởi tạo Bảng giá sân mẫu theo đúng thiết kế (Sân 5 người)
-        if (priceMatrixRepository.count() == 0) {
-            priceMatrixRepository.saveAll(List.of(
-                PriceMatrix.builder().pitchType(type5).dayType("WEEKDAY").isPeakHour(false).price(new BigDecimal("550000")).build(),
-                PriceMatrix.builder().pitchType(type5).dayType("WEEKDAY").isPeakHour(true).price(new BigDecimal("600000")).build(),
-                PriceMatrix.builder().pitchType(type5).dayType("WEEKEND").isPeakHour(false).price(new BigDecimal("200000")).build(),
-                PriceMatrix.builder().pitchType(type5).dayType("WEEKEND").isPeakHour(true).price(new BigDecimal("400000")).build(),
-                PriceMatrix.builder().pitchType(type5).dayType("HOLIDAY").isPeakHour(false).price(new BigDecimal("500000")).build(),
-                PriceMatrix.builder().pitchType(type5).dayType("HOLIDAY").isPeakHour(true).price(new BigDecimal("700000")).build(),
+        // 3. Khởi tạo Bảng giá sân mẫu theo đúng thiết kế (Chỉ Loại sân 1 và 2: đủ 12 bản ghi)
+        // Quy tắc: Ngày thường < Cuối tuần < Ngày lễ; Giờ thường < Giờ cao điểm
+        List<PriceMatrix> targetMatrices = List.of(
+            // Sân 5 người (type 1)
+            PriceMatrix.builder().pitchType(type5).dayType("WEEKDAY").isPeakHour(false).price(new BigDecimal("200000")).build(),
+            PriceMatrix.builder().pitchType(type5).dayType("WEEKDAY").isPeakHour(true).price(new BigDecimal("300000")).build(),
+            PriceMatrix.builder().pitchType(type5).dayType("WEEKEND").isPeakHour(false).price(new BigDecimal("350000")).build(),
+            PriceMatrix.builder().pitchType(type5).dayType("WEEKEND").isPeakHour(true).price(new BigDecimal("450000")).build(),
+            PriceMatrix.builder().pitchType(type5).dayType("HOLIDAY").isPeakHour(false).price(new BigDecimal("500000")).build(),
+            PriceMatrix.builder().pitchType(type5).dayType("HOLIDAY").isPeakHour(true).price(new BigDecimal("600000")).build(),
 
-                PriceMatrix.builder().pitchType(type7).dayType("WEEKDAY").isPeakHour(false).price(new BigDecimal("700000")).build(),
-                PriceMatrix.builder().pitchType(type7).dayType("WEEKDAY").isPeakHour(true).price(new BigDecimal("850000")).build(),
-                PriceMatrix.builder().pitchType(type7).dayType("WEEKEND").isPeakHour(false).price(new BigDecimal("350000")).build(),
-                PriceMatrix.builder().pitchType(type7).dayType("WEEKEND").isPeakHour(true).price(new BigDecimal("600000")).build(),
-                PriceMatrix.builder().pitchType(type7).dayType("HOLIDAY").isPeakHour(false).price(new BigDecimal("750000")).build(),
-                PriceMatrix.builder().pitchType(type7).dayType("HOLIDAY").isPeakHour(true).price(new BigDecimal("950000")).build()
-            ));
+            // Sân 7 người (type 2)
+            PriceMatrix.builder().pitchType(type7).dayType("WEEKDAY").isPeakHour(false).price(new BigDecimal("350000")).build(),
+            PriceMatrix.builder().pitchType(type7).dayType("WEEKDAY").isPeakHour(true).price(new BigDecimal("500000")).build(),
+            PriceMatrix.builder().pitchType(type7).dayType("WEEKEND").isPeakHour(false).price(new BigDecimal("550000")).build(),
+            PriceMatrix.builder().pitchType(type7).dayType("WEEKEND").isPeakHour(true).price(new BigDecimal("700000")).build(),
+            PriceMatrix.builder().pitchType(type7).dayType("HOLIDAY").isPeakHour(false).price(new BigDecimal("750000")).build(),
+            PriceMatrix.builder().pitchType(type7).dayType("HOLIDAY").isPeakHour(true).price(new BigDecimal("900000")).build()
+        );
+
+        for (PriceMatrix target : targetMatrices) {
+            Optional<PriceMatrix> existing = priceMatrixRepository.findByPitchTypeAndDayTypeAndPeak(
+                    target.getPitchType().getId(), target.getDayType(), target.isPeakHour());
+            if (existing.isPresent()) {
+                PriceMatrix pm = existing.get();
+                pm.setPrice(target.getPrice());
+                priceMatrixRepository.save(pm);
+            } else {
+                priceMatrixRepository.save(target);
+            }
         }
 
         // 4. Khởi tạo danh mục Ngày lễ mẫu
@@ -94,31 +110,9 @@ public class DataInitializer implements CommandLineRunner {
             ));
         }
 
-        // 4. Tự động sinh lịch ca đá (PitchSlot) cho hôm nay nếu chưa có
-        LocalDate today = LocalDate.now();
-        if (pitchSlotRepository.findByDateslot(today).isEmpty()) {
-            List<Pitch> pitches = pitchRepository.findAll();
-            List<TimeSlot> slots = timeSlotRepository.findAll();
-
-            for (Pitch p : pitches) {
-                for (TimeSlot t : slots) {
-                    BigDecimal price = t.isPeakHour() ? new BigDecimal("350000") : new BigDecimal("250000");
-                    if (p.getName().contains("7")) {
-                        price = price.add(new BigDecimal("150000")); // Sân 7 đắt hơn sân 5
-                    }
-
-                    PitchSlot ps = PitchSlot.builder()
-                            .pitch(p)
-                            .timeSlot(t)
-                            .dateslot(today)
-                            .price(price)
-                            .status("AVAILABLE")
-                            .build();
-
-                    pitchSlotRepository.save(ps);
-                }
-            }
-            System.out.println(">>> Đã tự động sinh toàn bộ ca đá (PitchSlot) cho ngày hôm nay: " + today);
-        }
+        // // 4. Tự động sinh và đồng bộ lịch ca đá (PitchSlot) cho 30 ngày tới theo ma trận giá
+        // LocalDate today = LocalDate.now();
+        // int generatedCount = pitchSlotService.generateSlots(today, today.plusDays(30));
+        // System.out.println(">>> Đã tự động đồng bộ lịch ca đá (PitchSlot) cho 30 ngày tới (" + today + " đến " + today.plusDays(30) + "), số ca mới tạo: " + generatedCount);
     }
 }

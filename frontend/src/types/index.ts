@@ -25,6 +25,8 @@ export interface PitchSlot {
   dateslot?: string;
   price: number;
   status: 'AVAILABLE' | 'HOLDING' | 'BOOKED' | 'MAINTENANCE' | 'CLOSED';
+  isPeakHour?: boolean;
+  peakHour?: boolean;
   holdExpiresAt?: string;
 }
 
@@ -34,7 +36,8 @@ export interface ServiceItem {
   unit: string;
   price: number;
   category: 'DRINK' | 'EQUIPMENT' | 'REFEREE';
-  isActive: boolean;
+  isActive?: boolean;
+  active?: boolean;
   description?: string;
 }
 
@@ -80,15 +83,13 @@ export interface UserResponse {
   phoneNumber: string;
   fullName: string;
   status: string;
-  roleId?: number;
   roleName?: string;
-  roleDescription?: string;
 }
 
 export interface PaymentTransactionResponse {
   id: number;
   transactionCode: string;
-  bookingId?: number;
+  paymentMethodCode?: string;
   bookingCode?: string;
   amount: number;
   paymentType: string;
@@ -115,7 +116,8 @@ export interface TimeSlotResponse {
 
 export interface PriceMatrixResponse {
   id: number;
-  isPeakHour: boolean;
+  isPeakHour?: boolean;
+  peakHour?: boolean;
   pitchTypeId?: number;
   pitchTypeName?: string;
   dayType: string;

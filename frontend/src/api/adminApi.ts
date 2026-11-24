@@ -18,6 +18,9 @@ export const adminApi = {
   getAvailablePitchSlots: (date?: string) => 
     axiosClient.get<any, PitchSlot[]>('/pitch-slots/available', { params: date ? { date } : {} }),
 
+  generatePitchSlots: (days = 30) =>
+    axiosClient.post<any, any>(`/pitch-slots/generate?days=${days}`),
+
   // 2. Quản lý Đơn
   getBookings: () => 
     axiosClient.get<any, Booking[]>('/bookings'),
@@ -40,6 +43,12 @@ export const adminApi = {
 
   updateService: (id: number, data: Partial<ServiceItem>) =>
     axiosClient.put<any, ServiceItem>(`/services/${id}`, data),
+
+  lockService: (id: number) =>
+    axiosClient.patch<any, ServiceItem>(`/services/${id}/lock`),
+
+  toggleServiceStatus: (id: number) =>
+    axiosClient.patch<any, ServiceItem>(`/services/${id}/toggle-status`),
 
   deleteService: (id: number) =>
     axiosClient.delete<any, void>(`/services/${id}`),
