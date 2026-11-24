@@ -31,6 +31,12 @@ export const adminApi = {
   getBookingByCode: (code: string) => 
     axiosClient.get<any, Booking>(`/bookings/code/${code}`),
 
+  confirmBookingPayment: (id: number, data?: { services?: { serviceId: number; quantity: number }[] }) =>
+    axiosClient.post<any, Booking>(`/bookings/${id}/confirm-payment`, data || {}),
+
+  cancelBookingPayment: (id: number) =>
+    axiosClient.post<any, Booking>(`/bookings/${id}/cancel-payment`),
+
   // 3. Dịch vụ (Hỗ trợ đầy đủ CRUD)
   getServices: (activeOnly = false) => 
     axiosClient.get<any, ServiceItem[]>('/services', { params: { activeOnly } }),
@@ -62,6 +68,9 @@ export const adminApi = {
 
   getTransactionsByBookingId: (bookingId: number) => 
     axiosClient.get<any, PaymentTransactionResponse[]>(`/payment-transactions/booking/${bookingId}`),
+
+  createTransaction: (data: any) => 
+    axiosClient.post<any, PaymentTransactionResponse>('/payment-transactions', data),
 
   // 5. Người dùng
   getUsers: () => 

@@ -13,6 +13,17 @@ export interface Pitch {
   description?: string;
 }
 
+export type PitchSlotStatus = 'AVAILABLE' | 'HOLDING' | 'BOOKED' | 'MAINTENANCE' | 'CLOSED';
+
+export type BookingStatus = 
+  | 'PENDING_PAYMENT'
+  | 'CONFIRMED'
+  | 'CHECKED_IN'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW';
+
 export interface PitchSlot {
   id: number;
   pitchId: number;
@@ -24,7 +35,7 @@ export interface PitchSlot {
   slotDate?: string;
   dateslot?: string;
   price: number;
-  status: 'AVAILABLE' | 'HOLDING' | 'BOOKED' | 'MAINTENANCE' | 'CLOSED';
+  status: PitchSlotStatus;
   isPeakHour?: boolean;
   peakHour?: boolean;
   holdExpiresAt?: string;
@@ -71,7 +82,7 @@ export interface Booking {
   totalAmount: number;
   depositAmount: number;
   bookingType?: string;
-  status: 'PENDING_PAYMENT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: BookingStatus;
   customerNote?: string;
   createdAt?: string;
   services?: any[];
@@ -86,14 +97,17 @@ export interface UserResponse {
   roleName?: string;
 }
 
+export type PaymentType = 'DEPOSIT' | 'REMAINING' | 'REFUND' | 'FULL';
+export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+
 export interface PaymentTransactionResponse {
   id: number;
   transactionCode: string;
   paymentMethodCode?: string;
   bookingCode?: string;
   amount: number;
-  paymentType: string;
-  status: string;
+  paymentType: PaymentType;
+  status: PaymentStatus;
 }
 
 export interface PitchResponse {

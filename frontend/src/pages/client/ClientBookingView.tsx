@@ -3,17 +3,23 @@ import { PitchSlot, ServiceItem, Booking, PitchResponse, TimeSlotResponse } from
 import axiosClient from '../../api/axiosClient';
 import { adminApi } from '../../api/adminApi';
 import { formatDate } from '../../utils/dateUtils';
+import { toast } from '../../utils/toast';
 import {
   Calendar,
   ShieldCheck,
   ShoppingCart,
   CheckCircle2,
-  AlertCircle,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
   Info,
-  Check
+  Check,
+  QrCode,
+  X,
+  Copy,
+  AlertTriangle,
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 
 export const ClientBookingView: React.FC = () => {
@@ -34,8 +40,20 @@ export const ClientBookingView: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
+
+  // Modal mô phỏng thanh toán VNPay
+  const [showVNPayModal, setShowVNPayModal] = useState(false);
+  const [pendingBooking, setPendingBooking] = useState<Booking | null>(null);
+  const [pendingServicesDto, setPendingServicesDto] = useState<{ serviceId: number; quantity: number }[]>([]);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+
+  // Popup thông báo kết quả & xác nhận
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [confirmedBookingData, setConfirmedBookingData] = useState<Booking | null>(null);
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
+  const [showCancelSuccessModal, setShowCancelSuccessModal] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleShiftDate = (days: number) => {
     const current = new Date(selectedDate);
@@ -46,7 +64,6 @@ export const ClientBookingView: React.FC = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    setErrorMsg(null);
     try {
       const [pitchesRes, timeSlotsRes, slotsRes, servicesRes] = await Promise.all([
         adminApi.getPitches(),
@@ -65,7 +82,7 @@ export const ClientBookingView: React.FC = () => {
       if (Array.isArray(slotsRes)) setSlots(slotsRes);
       if (Array.isArray(servicesRes)) setServices(servicesRes);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Không thể tải dữ liệu từ máy chủ');
+      console.error('Không thể tải dữ liệu từ máy chủ:', err);
     } finally {
       setLoading(false);
     }
@@ -165,12 +182,26 @@ export const ClientBookingView: React.FC = () => {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSlot) {
-      alert('Vui lòng chọn một ca đá còn trống trên ma trận lịch!');
+      toast.warning('Vui lòng chọn một ca đá còn trống trên ma trận lịch!');
+      return;
+    }
+    if (!guestName.trim()) {
+      toast.warning('Vui lòng nhập họ tên người đặt sân!');
+      return;
+    }
+    if (!guestPhone.trim()) {
+      toast.warning('Vui lòng nhập số điện thoại người đặt sân!');
       return;
     }
 
     setBookingLoading(true);
-    setErrorMsg(null);
+
+    const servicesDto = Object.entries(selectedServices)
+      .filter(([_, qty]) => qty > 0)
+      .map(([serviceId, quantity]) => ({
+        serviceId: Number(serviceId),
+        quantity,
+      }));
 
     const payload = {
       pitchSlotId: selectedSlot.id,
@@ -178,26 +209,84 @@ export const ClientBookingView: React.FC = () => {
       guestPhone,
       customerNote,
       bookingType: 'ONLINE',
-      services: Object.entries(selectedServices).map(([serviceId, quantity]) => ({
-        serviceId: Number(serviceId),
-        quantity,
-      })),
+      services: servicesDto,
     };
 
     try {
+      // 1. Tạo đơn chờ cọc trong DB (bảng booking_services chưa insert)
       const res = await axiosClient.post<any, Booking>('/bookings', payload);
+      setPendingBooking(res);
+      setPendingServicesDto(servicesDto);
+      setShowVNPayModal(true); // Bật popup mô phỏng VNPay
+      fetchData(); // Cập nhật lại ma trận ca đá (chuyển sang HOLDING)
+    } catch (err: any) {
+      console.error('Đặt sân thất bại:', err);
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const handleCopy = (text: string, fieldName: string) => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  const handleConfirmDeposit = async () => {
+    if (!pendingBooking) return;
+    setConfirmingPayment(true);
+    try {
+      // 2. Gọi API xác nhận thanh toán cọc thành công, truyền DTO dịch vụ để chính thức insert vào DB
+      const res = await adminApi.confirmBookingPayment(pendingBooking.id, {
+        services: pendingServicesDto,
+      });
+
+      setShowVNPayModal(false);
+      setConfirmedBookingData(res);
+      setShowSuccessModal(true); // Bật popup thông báo thành công
       setCreatedBooking(res);
+
+      setPendingBooking(null);
+      setPendingServicesDto([]);
       setSelectedSlot(null);
       setSelectedServices({});
       setGuestName('');
       setGuestPhone('');
       setCustomerNote('');
-      fetchData();
+      fetchData(); // Cập nhật lại ma trận ca đá (chuyển sang BOOKED)
+      toast.success(`Đơn #${res.bookingCode} đã xác nhận đặt cọc thành công!`);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Đặt sân thất bại');
+      console.error('Xác nhận thanh toán cọc thất bại:', err);
     } finally {
-      setBookingLoading(false);
+      setConfirmingPayment(false);
     }
+  };
+
+  const handleRequestCancelVNPay = () => {
+    setShowCancelConfirmModal(true);
+  };
+
+  const handleConfirmCancelVNPay = async () => {
+    if (pendingBooking) {
+      try {
+        await adminApi.cancelBookingPayment(pendingBooking.id);
+        toast.info(`Đã hủy giao dịch cho đơn #${pendingBooking.bookingCode}. Ca đá đã được mở lại.`);
+      } catch (err) {
+        console.error('Lỗi khi hủy giao dịch thanh toán:', err);
+      }
+    }
+    setShowCancelConfirmModal(false);
+    setShowVNPayModal(false);
+    setShowCancelSuccessModal(true); // Mở popup thông báo đã hủy
+    setPendingBooking(null);
+    setPendingServicesDto([]);
+    setSelectedSlot(null);
+    setSelectedServices({});
+    fetchData(); // Ca đá được nhả về trống (AVAILABLE) trên ma trận
   };
 
   return (
@@ -272,9 +361,9 @@ export const ClientBookingView: React.FC = () => {
           <div className="flex items-center gap-3">
             <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
             <div>
-              <div className="font-bold text-base">Đặt sân thành công! Mã đơn: {createdBooking.bookingCode}</div>
+              <div className="font-bold text-base">Đặt cọc thành công! Mã đơn: {createdBooking.bookingCode}</div>
               <div className="text-xs text-emerald-700 mt-0.5">
-                Vui lòng thanh toán tiền cọc 30% để xác nhận đơn đặt sân của bạn.
+                Trạng thái: <strong>ĐÃ XÁC NHẬN (CONFIRMED)</strong>. Ca đá đã được khóa và toàn bộ dịch vụ kèm theo đã được lưu vào cơ sở dữ liệu.
               </div>
             </div>
           </div>
@@ -284,14 +373,6 @@ export const ClientBookingView: React.FC = () => {
           >
             Đóng
           </button>
-        </div>
-      )}
-
-      {/* Error Alert */}
-      {errorMsg && (
-        <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm flex items-center gap-2 shadow-xs">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <span>{errorMsg}</span>
         </div>
       )}
 
@@ -606,11 +687,377 @@ export const ClientBookingView: React.FC = () => {
               className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {bookingLoading && <RefreshCw className="w-4 h-4 animate-spin" />}
-              <span>{selectedSlot ? 'Xác Nhận Đặt Sân Ngay' : 'Vui lòng chọn ca đá ở bước 1'}</span>
+              <span>{selectedSlot ? 'Tiến Hành Đặt Sân & Đặt Cọc' : 'Vui lòng chọn ca đá ở bước 1'}</span>
             </button>
           </form>
         </div>
       </div>
+
+      {/* ======================================================== */}
+      {/* 1. MODAL MÔ PHỎNG CỔNG THANH TOÁN VNPAY SANDBOX ĐẸP MẮT  */}
+      {/* ======================================================== */}
+      {showVNPayModal && pendingBooking && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden border border-gray-100 flex flex-col my-auto animate-in zoom-in-95">
+            {/* Header VNPay */}
+            <div className="bg-gradient-to-r from-[#005baa] via-[#004b8d] to-[#00386b] text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white rounded-xl px-2.5 py-1.5 flex items-center shadow-xs">
+                  <span className="text-[#005baa] font-black text-lg tracking-tighter">VN</span>
+                  <span className="text-[#ed1c24] font-black text-lg tracking-tighter">PAY</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-base text-white">Cổng Thanh Toán Trực Tuyến</span>
+                    <span className="bg-amber-400 text-amber-950 font-bold text-[10px] uppercase px-2 py-0.5 rounded-full tracking-wider">
+                      SANDBOX DEMO
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-100 mt-0.5 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>Hệ thống tạm giữ sân trong 15 phút để bạn thanh toán cọc</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRequestCancelVNPay}
+                className="p-2 rounded-full text-blue-100 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
+                title="Đóng / Hủy giao dịch"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body - 2 Cột trên màn hình Desktop, không bị cuộn */}
+            <div className="p-5 grid grid-cols-1 md:grid-cols-12 gap-4.5 bg-gray-50/50">
+              {/* CỘT TRÁI: Thông tin thanh toán & Tài khoản nhận */}
+              <div className="md:col-span-7 space-y-3.5">
+                {/* Box Số tiền cọc cần chuyển */}
+                <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50/70 border border-blue-200/80 rounded-2xl p-4 shadow-2xs">
+                  <div className="text-xs font-semibold text-blue-900 uppercase tracking-wider flex items-center justify-between">
+                    <span>Số tiền cọc cần thanh toán (30%)</span>
+                    <span className="text-[#005baa] bg-blue-100/70 px-2 py-0.5 rounded text-[11px] font-bold">
+                      Cọc giữ sân
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#005baa] tracking-tight">
+                      {(pendingBooking.depositAmount || depositAmount).toLocaleString('vi-VN')} đ
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(String(pendingBooking.depositAmount || depositAmount), 'amount')}
+                      className="text-xs text-blue-700 hover:text-blue-800 bg-white px-2.5 py-1.5 rounded-lg border border-blue-200 shadow-2xs flex items-center gap-1 font-medium transition-all cursor-pointer"
+                      title="Sao chép số tiền"
+                    >
+                      {copiedField === 'amount' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedField === 'amount' ? 'Đã sao chép' : 'Sao chép'}</span>
+                    </button>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-blue-100 text-xs text-blue-800 flex justify-between font-medium">
+                    <span>Tổng chi phí đơn đặt:</span>
+                    <span className="font-bold text-gray-900">
+                      {(pendingBooking.totalAmount || totalAmount).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                </div>
+
+                {/* Thông tin đơn đặt sân */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-3.5 space-y-2 text-xs shadow-2xs">
+                  <div className="font-bold text-gray-900 pb-1 border-b border-gray-100 flex items-center justify-between">
+                    <span>Chi tiết đặt sân</span>
+                    <span className="font-mono text-gray-600">#{pendingBooking.bookingCode}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Sân bóng:</span>
+                    <strong className="text-gray-900">{pendingBooking.pitchName}</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Khung giờ:</span>
+                    <strong className="text-gray-900">
+                      {formatTimeRange(pendingBooking.startTime, pendingBooking.endTime)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Ngày đá:</span>
+                    <strong className="text-gray-900">
+                      {formatDate(pendingBooking.dateslot || selectedDate)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Người đặt:</span>
+                    <span className="font-semibold text-gray-800">{guestName || pendingBooking.guestName}</span>
+                  </div>
+                </div>
+
+                {/* Tài khoản ngân hàng nhận tiền */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-3.5 space-y-2 text-xs shadow-2xs">
+                  <div className="font-bold text-gray-900 flex items-center justify-between pb-1 border-b border-gray-100">
+                    <span>Tài khoản ngân hàng nhận cọc</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
+                      Khớp lệnh tự động
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Ngân hàng:</span>
+                    <strong className="text-gray-800">MB Bank (Ngân hàng Quân Đội)</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Số tài khoản:</span>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="font-mono text-sm text-gray-900">0901234567</strong>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy('0901234567', 'stk')}
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                        title="Sao chép số tài khoản"
+                      >
+                        {copiedField === 'stk' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Chủ tài khoản:</span>
+                    <strong className="text-gray-800">HE THONG SAN BONG FPMS</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Nội dung CK:</span>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="font-mono text-sm text-[#005baa]">FPMS {pendingBooking.bookingCode}</strong>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(`FPMS ${pendingBooking.bookingCode}`, 'memo')}
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                        title="Sao chép nội dung chuyển khoản"
+                      >
+                        {copiedField === 'memo' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CỘT PHẢI: Khung VietQR Demo & Dịch vụ */}
+              <div className="md:col-span-5 space-y-3.5 flex flex-col justify-start">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-2xs text-center space-y-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-gray-900">
+                      <QrCode className="w-4 h-4 text-[#005baa]" />
+                      <span>Quét mã VietQR / VNPay</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500">Mở ứng dụng Ngân hàng để quét mã</p>
+                  </div>
+
+                  <div className="relative inline-block p-2.5 bg-gradient-to-b from-blue-50/50 to-white border-2 border-blue-100 rounded-2xl shadow-sm">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=2|99|0901234567|HE%20THONG%20SAN%20BONG%20FPMS|admin@fpms.com|0|0|${pendingBooking.depositAmount || depositAmount}|FPMS%20${pendingBooking.bookingCode}|transfer_myqr`}
+                      alt="VietQR Mockup"
+                      className="w-36 h-36 object-contain rounded-lg mx-auto"
+                    />
+                    <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#005baa] text-white text-[10px] font-bold px-3 py-0.5 rounded-full shadow-xs tracking-wider">
+                      VietQR PRO
+                    </div>
+                  </div>
+                </div>
+
+                {/* Danh sách dịch vụ đặt kèm */}
+                {pendingServicesDto.length > 0 && (
+                  <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3 text-xs text-amber-900 shadow-2xs">
+                    <div className="font-bold mb-1 flex items-center gap-1.5 text-amber-950">
+                      <ShoppingCart className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Dịch vụ đặt kèm ({pendingServicesDto.length} loại):</span>
+                    </div>
+                    <ul className="divide-y divide-amber-200/60 text-amber-900 text-xs">
+                      {pendingServicesDto.map((s) => {
+                        const item = services.find((sv) => sv.id === s.serviceId);
+                        return (
+                          <li key={s.serviceId} className="py-1 flex justify-between">
+                            <span>{item ? item.name : `Dịch vụ #${s.serviceId}`}</span>
+                            <span className="font-bold">x {s.quantity}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-4 sm:p-5 bg-white border-t border-gray-100 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={handleConfirmDeposit}
+                disabled={confirmingPayment}
+                className="flex-1 py-3.5 px-5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2.5 text-sm disabled:opacity-50 cursor-pointer"
+              >
+                {confirmingPayment ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Đang ghi nhận cọc vào hệ thống...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+                    <span>Xác Nhận Đặt Cọc Thành Công</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRequestCancelVNPay}
+                disabled={confirmingPayment}
+                className="py-3 px-5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors text-sm cursor-pointer"
+              >
+                Hủy / Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 2. POPUP THÔNG BÁO XÁC NHẬN ĐẶT CỌC THÀNH CÔNG           */}
+      {/* ======================================================== */}
+      {showSuccessModal && (confirmedBookingData || pendingBooking) && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 text-center space-y-5 border border-gray-100 animate-in zoom-in-95">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-50">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-bold text-gray-900">Đặt Cọc Sân Thành Công!</h3>
+              <p className="text-xs text-gray-500">
+                Đơn đặt sân của bạn đã được xác nhận thanh toán cọc và lưu trữ thành công trên hệ thống.
+              </p>
+            </div>
+
+            {(() => {
+              const b = confirmedBookingData || pendingBooking;
+              if (!b) return null;
+              return (
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-xs space-y-2.5 text-left">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Mã đơn đặt sân:</span>
+                    <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {b.bookingCode}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Trạng thái đơn:</span>
+                    <span className="bg-emerald-600 text-white font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+                      ĐÃ XÁC NHẬN (CONFIRMED)
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Sân bóng:</span>
+                    <strong className="text-gray-800">{b.pitchName}</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Khung giờ:</span>
+                    <strong className="text-gray-800">
+                      {formatTimeRange(b.startTime, b.endTime)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Ngày thi đấu:</span>
+                    <strong className="text-gray-800">
+                      {formatDate(b.dateslot || selectedDate)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center pt-2.5 border-t border-gray-200 font-bold text-sm">
+                    <span className="text-gray-800">Tiền cọc đã nhận:</span>
+                    <span className="text-emerald-700">
+                      {(b.depositAmount || depositAmount).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowSuccessModal(false);
+                setConfirmedBookingData(null);
+              }}
+              className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer"
+            >
+              <span>Hoàn Tất & Xem Lịch Đặt</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. POPUP XÁC NHẬN HỦY GIAO DỊCH THANH TOÁN CỌC           */}
+      {/* ======================================================== */}
+      {showCancelConfirmModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4 border border-gray-100 animate-in zoom-in-95">
+            <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto ring-8 ring-amber-50">
+              <AlertTriangle className="w-7 h-7 text-amber-600" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-gray-900">Xác Nhận Hủy Thanh Toán?</h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Bạn có chắc chắn muốn hủy giao dịch đặt cọc này không? Ca đá sẽ không được giữ chỗ và các dịch vụ kèm theo sẽ không được lưu.
+              </p>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelConfirmModal(false)}
+                className="flex-1 py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Tiếp tục thanh toán
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancelVNPay}
+                className="flex-1 py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-colors shadow-2xs cursor-pointer"
+              >
+                Đồng ý hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 4. POPUP THÔNG BÁO ĐÃ HỦY GIAO DỊCH                      */}
+      {/* ======================================================== */}
+      {showCancelSuccessModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4 border border-gray-100 animate-in zoom-in-95">
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto ring-8 ring-gray-50">
+              <X className="w-7 h-7 text-gray-600" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-gray-900">Đã Hủy Giao Dịch</h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Giao dịch thanh toán cọc đã được hủy. Ca đá đã được mở lại cho người khác và các dịch vụ chưa được ghi nhận vào hệ thống.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowCancelSuccessModal(false)}
+              className="w-full py-2.5 px-4 bg-gray-900 hover:bg-black text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+            >
+              Đóng thông báo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
