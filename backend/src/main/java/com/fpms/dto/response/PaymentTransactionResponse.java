@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 public class PaymentTransactionResponse {
     private Long id;
     private String transactionCode;
-    private Long bookingId;
+    private String paymentMethodCode;
     private String bookingCode;
     private BigDecimal amount;
     private String paymentType;
@@ -24,7 +24,7 @@ public class PaymentTransactionResponse {
         return PaymentTransactionResponse.builder()
                 .id(tx.getId())
                 .transactionCode(tx.getTransactionCode())
-                .bookingId(tx.getBooking() != null ? tx.getBooking().getId() : null)
+                .paymentMethodCode(tx.getPaymentMethod() != null ? tx.getPaymentMethod().getCode() : null)
                 .bookingCode(tx.getBooking() != null ? tx.getBooking().getBookingCode() : null)
                 .amount(tx.getAmount())
                 .paymentType(tx.getPaymentType())

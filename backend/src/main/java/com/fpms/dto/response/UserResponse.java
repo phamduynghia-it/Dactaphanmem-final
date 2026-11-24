@@ -14,9 +14,7 @@ public class UserResponse {
     private String phoneNumber;
     private String fullName;
     private String status;
-    private Long roleId;
     private String roleName;
-    private String roleDescription;
 
     public static UserResponse fromEntity(User user) {
         if (user == null) return null;
@@ -26,9 +24,7 @@ public class UserResponse {
                 .phoneNumber(user.getPhoneNumber())
                 .fullName(user.getFullName())
                 .status(user.getStatus())
-                .roleId(user.getRole() != null ? user.getRole().getId() : null)
                 .roleName(user.getRole() != null ? user.getRole().getRoleName() : null)
-                .roleDescription(user.getRole() != null ? user.getRole().getDescription() : null)
                 .build();
     }
 }

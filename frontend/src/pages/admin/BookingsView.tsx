@@ -1,81 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { Booking } from '../../types';
+import { RefreshCw } from 'lucide-react';
 
 export const BookingsView: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const mockBookings: any[] = [
-    {
-      id: 1,
-      bookingCode: 'BK2026112501',
-      guestName: 'Nguyễn Văn Khách',
-      guestPhone: '0912345678',
-      pitchSlotId: 1,
-      totalAmount: 200000,
-      depositAmount: 60000,
-      status: 'CONFIRMED',
-      bookingType: 'ONLINE'
-    },
-    {
-      id: 2,
-      bookingCode: 'BK2026112502',
-      guestName: 'Hoàng Minh Tuấn',
-      guestPhone: '0987654321',
-      pitchSlotId: 2,
-      totalAmount: 400000,
-      depositAmount: 120000,
-      status: 'CONFIRMED',
-      bookingType: 'ONLINE'
-    },
-    {
-      id: 3,
-      bookingCode: 'BK2026112503',
-      guestName: 'Trần Quốc Bảo',
-      guestPhone: '0933445566',
-      pitchSlotId: 3,
-      totalAmount: 350000,
-      depositAmount: 105000,
-      status: 'PENDING_PAYMENT',
-      bookingType: 'ONLINE'
-    },
-    {
-      id: 4,
-      bookingCode: 'BK2026112504',
-      guestName: 'Đặng Hải Đăng',
-      guestPhone: '0944556677',
-      pitchSlotId: 4,
-      totalAmount: 800000,
-      depositAmount: 240000,
-      status: 'COMPLETED',
-      bookingType: 'DIRECT'
-    },
-    {
-      id: 5,
-      bookingCode: 'BK2026112505',
-      guestName: 'Vũ Đình Trọng',
-      guestPhone: '0977889900',
-      pitchSlotId: 5,
-      totalAmount: 450000,
-      depositAmount: 135000,
-      status: 'CANCELLED',
-      bookingType: 'ONLINE'
+  const fetchBookings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await axiosClient.get<any, Booking[]>('/bookings');
+      if (Array.isArray(data)) {
+        setBookings(data);
+      } else {
+        setBookings([]);
+      }
+    } catch (err: any) {
+      setBookings([]);
+      setError(err.message || 'Không thể tải danh sách đơn đặt sân');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const data = await axiosClient.get<any, Booking[]>('/bookings');
-        if (data && data.length > 0) {
-          setBookings(data);
-        } else {
-          setBookings(mockBookings as any);
-        }
-      } catch (err) {
-        setBookings(mockBookings as any);
-      }
-    };
     fetchBookings();
   }, []);
 
@@ -86,7 +37,23 @@ export const BookingsView: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Quản Lý Đơn Đặt Sân</h1>
           <p className="text-sm text-gray-500 mt-1">Danh sách đơn đặt online và tại quầy trong hệ thống</p>
         </div>
+
+        <button
+          onClick={fetchBookings}
+          disabled={loading}
+          className="flex items-center gap-2 px-3.5 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition-colors shadow-xs"
+          title="Tải lại dữ liệu"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span>Làm mới</span>
+        </button>
       </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
@@ -104,6 +71,13 @@ export const BookingsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
+              {bookings.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                    Chưa có đơn đặt sân nào trong hệ thống.
+                  </td>
+                </tr>
+              )}
               {bookings.map((b) => (
                 <tr key={b.id} className="hover:bg-gray-50/80 transition-colors">
                   <td className="px-6 py-4 font-mono font-semibold text-emerald-800">{b.bookingCode}</td>
