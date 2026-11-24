@@ -1,6 +1,7 @@
 package com.fpms.service.impl;
 
 import com.fpms.dto.request.ServiceItemRequest;
+import com.fpms.dto.request.ServiceItemUpdateRequest;
 import com.fpms.dto.response.ServiceItemResponse;
 import com.fpms.entity.ServiceItem;
 import com.fpms.repository.ServiceItemRepository;
@@ -54,7 +55,7 @@ public class ServiceItemServiceImpl implements ServiceItemService {
     }
 
     @Override
-    public ServiceItemResponse updateService(Long id, ServiceItemRequest request) {
+    public ServiceItemResponse updateService(Long id, ServiceItemUpdateRequest request) {
         ServiceItem item = serviceItemRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy dịch vụ với ID: " + id));
 
@@ -66,9 +67,29 @@ public class ServiceItemServiceImpl implements ServiceItemService {
         }
         item.setDescription(request.getDescription());
         if (request.getIsActive() != null) {
-            item.setIsActive(request.getIsActive());
+            item.setActive(request.getIsActive());
         }
 
+        ServiceItem updated = serviceItemRepository.save(item);
+        return ServiceItemResponse.fromEntity(updated);
+    }
+
+    @Override
+    public ServiceItemResponse toggleServiceStatus(Long id) {
+        ServiceItem item = serviceItemRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy dịch vụ với ID: " + id));
+
+        item.setActive(!item.isActive());
+        ServiceItem updated = serviceItemRepository.save(item);
+        return ServiceItemResponse.fromEntity(updated);
+    }
+
+    @Override
+    public ServiceItemResponse setServiceActiveStatus(Long id, boolean active) {
+        ServiceItem item = serviceItemRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy dịch vụ với ID: " + id));
+
+        item.setActive(active);
         ServiceItem updated = serviceItemRepository.save(item);
         return ServiceItemResponse.fromEntity(updated);
     }

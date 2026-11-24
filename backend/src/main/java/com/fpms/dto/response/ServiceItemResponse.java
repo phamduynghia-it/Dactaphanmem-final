@@ -1,5 +1,6 @@
 package com.fpms.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fpms.entity.ServiceItem;
 import lombok.*;
 
@@ -16,8 +17,21 @@ public class ServiceItemResponse {
     private String unit;
     private BigDecimal price;
     private String category;
+
+    @JsonProperty("isActive")
     private boolean isActive;
+
     private String description;
+
+    @JsonProperty("isActive")
+    public boolean isActive() {
+        return this.isActive;
+    }
+
+    @JsonProperty("active")
+    public boolean getActive() {
+        return this.isActive;
+    }
 
     public static ServiceItemResponse fromEntity(ServiceItem item) {
         if (item == null) return null;

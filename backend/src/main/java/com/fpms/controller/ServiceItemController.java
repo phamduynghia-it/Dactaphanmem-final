@@ -1,6 +1,7 @@
 package com.fpms.controller;
 
 import com.fpms.dto.request.ServiceItemRequest;
+import com.fpms.dto.request.ServiceItemUpdateRequest;
 import com.fpms.dto.response.ApiResponse;
 import com.fpms.dto.response.ServiceItemResponse;
 import com.fpms.service.ServiceItemService;
@@ -46,12 +47,37 @@ public class ServiceItemController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật thông tin dịch vụ theo ID")
+    @Operation(summary = "Sửa thông tin dịch vụ theo ID")
     public ResponseEntity<ApiResponse<ServiceItemResponse>> updateService(
             @PathVariable Long id, 
-            @Valid @RequestBody ServiceItemRequest request) {
+            @Valid @RequestBody ServiceItemUpdateRequest request) {
         ServiceItemResponse response = serviceItemService.updateService(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật dịch vụ thành công", response));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin dịch vụ thành công", response));
+    }
+
+    @PatchMapping("/{id}/lock")
+    @Operation(summary = "Khóa dịch vụ (ngừng kinh doanh)")
+    public ResponseEntity<ApiResponse<ServiceItemResponse>> lockService(@PathVariable Long id) {
+        ServiceItemResponse response = serviceItemService.setServiceActiveStatus(id, false);
+        return ResponseEntity.ok(ApiResponse.success("Đã khóa dịch vụ thành công", response));
+    }
+
+    @PatchMapping("/{id}/toggle-status")
+    @Operation(summary = "Đảo trạng thái khóa / mở khóa dịch vụ")
+    public ResponseEntity<ApiResponse<ServiceItemResponse>> toggleServiceStatus(@PathVariable Long id) {
+        ServiceItemResponse response = serviceItemService.toggleServiceStatus(id);
+        String message = response.isActive() ? "Đã mở khóa dịch vụ thành công" : "Đã khóa dịch vụ thành công";
+        return ResponseEntity.ok(ApiResponse.success(message, response));
+    }
+
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "Cập nhật trạng thái khóa/mở dịch vụ")
+    public ResponseEntity<ApiResponse<ServiceItemResponse>> setServiceStatus(
+            @PathVariable Long id, 
+            @RequestParam boolean active) {
+        ServiceItemResponse response = serviceItemService.setServiceActiveStatus(id, active);
+        String message = active ? "Đã mở bán dịch vụ thành công" : "Đã khóa dịch vụ thành công";
+        return ResponseEntity.ok(ApiResponse.success(message, response));
     }
 
     @DeleteMapping("/{id}")
