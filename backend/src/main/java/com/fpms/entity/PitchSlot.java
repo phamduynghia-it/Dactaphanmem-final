@@ -1,5 +1,6 @@
 package com.fpms.entity;
 
+import com.fpms.enums.PitchSlotStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -54,29 +55,37 @@ public class PitchSlot {
     }
 
     // === DOMAIN METHODS ===
+    public PitchSlotStatus getSlotStatus() {
+        return PitchSlotStatus.from(this.status);
+    }
+
+    public void setSlotStatus(PitchSlotStatus slotStatus) {
+        this.status = slotStatus != null ? slotStatus.name() : PitchSlotStatus.AVAILABLE.name();
+    }
+
     public boolean isAvailable() {
-        if ("AVAILABLE".equalsIgnoreCase(this.status)) {
+        if (PitchSlotStatus.AVAILABLE.name().equalsIgnoreCase(this.status)) {
             return true;
         }
         // Nếu đang HOLDING nhưng đã quá hạn giữ chỗ thì tự động cho phép đặt lại
-        if ("HOLDING".equalsIgnoreCase(this.status) && holdExpiresAt != null && LocalDateTime.now().isAfter(holdExpiresAt)) {
+        if (PitchSlotStatus.HOLDING.name().equalsIgnoreCase(this.status) && holdExpiresAt != null && LocalDateTime.now().isAfter(holdExpiresAt)) {
             return true;
         }
         return false;
     }
 
     public void holdSlot(int expireMinutes) {
-        this.status = "HOLDING";
+        this.status = PitchSlotStatus.HOLDING.name();
         this.holdExpiresAt = LocalDateTime.now().plusMinutes(expireMinutes);
     }
 
     public void releaseSlot() {
-        this.status = "AVAILABLE";
+        this.status = PitchSlotStatus.AVAILABLE.name();
         this.holdExpiresAt = null;
     }
 
     public void bookSlot() {
-        this.status = "BOOKED";
+        this.status = PitchSlotStatus.BOOKED.name();
         this.holdExpiresAt = null;
     }
 }

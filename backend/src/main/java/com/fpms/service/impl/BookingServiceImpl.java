@@ -1,10 +1,17 @@
 package com.fpms.service.impl;
 
+import com.fpms.dto.request.BookingConfirmDepositRequest;
 import com.fpms.dto.request.BookingCreateRequest;
+import com.fpms.dto.request.PaymentTransactionCreateRequest;
+import com.fpms.dto.request.ServiceOrderRequest;
 import com.fpms.dto.response.BookingResponse;
 import com.fpms.entity.*;
+import com.fpms.enums.BookingStatus;
+import com.fpms.enums.PaymentStatus;
+import com.fpms.enums.PaymentType;
 import com.fpms.repository.*;
 import com.fpms.service.BookingService;
+import com.fpms.service.PaymentTransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +28,9 @@ public class BookingServiceImpl implements BookingService {
     private final PitchSlotRepository pitchSlotRepository;
     private final ServiceItemRepository serviceItemRepository;
     private final UserRepository userRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
+    private final PaymentTransactionService paymentTransactionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -79,11 +89,11 @@ public class BookingServiceImpl implements BookingService {
                 .guestPhone(request.getGuestPhone() != null ? request.getGuestPhone() : (customer != null ? customer.getPhoneNumber() : "0900000000"))
                 .totalPitchAmount(totalPitchAmount)
                 .bookingType(request.getBookingType() != null ? request.getBookingType() : "ONLINE")
-                .status("PENDING_PAYMENT")
+                .status(BookingStatus.PENDING_PAYMENT.name())
                 .customerNote(request.getCustomerNote())
                 .build();
 
-        // 4. Xử lý các dịch vụ đi kèm (nước uống, áo bib, thuê bóng...)
+        // 4. Tính toán chi phí dịch vụ đi kèm (chưa insert vào bảng booking_services)
         if (request.getServices() != null && !request.getServices().isEmpty()) {
             for (var itemReq : request.getServices()) {
                 ServiceItem sItem = serviceItemRepository.findById(itemReq.getServiceId())
@@ -91,16 +101,7 @@ public class BookingServiceImpl implements BookingService {
 
                 BigDecimal itemTotal = sItem.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
                 totalServiceAmount = totalServiceAmount.add(itemTotal);
-
-                BookingServiceItem bsi = BookingServiceItem.builder()
-                        .booking(booking)
-                        .service(sItem)
-                        .quantity(itemReq.getQuantity())
-                        .unitPrice(sItem.getPrice()) // SNAPSHOT ĐƠN GIÁ TẠI THỜI ĐIỂM ĐẶT
-                        .totalPrice(itemTotal)
-                        .build();
-
-                booking.getServices().add(bsi);
+                // LƯU Ý: Chưa thêm vào booking.getServices() để không insert vào DB lúc này
             }
         }
 
@@ -111,19 +112,104 @@ public class BookingServiceImpl implements BookingService {
         booking.setDepositAmount(booking.getTotalAmount().multiply(new BigDecimal("0.30")));
 
         Booking saved = bookingRepository.save(booking);
+
+        // 5. Khi đặt sân -> gọi PaymentTransactionService tạo transaction mặc định (type DEPOSIT, status PENDING)
+        try {
+            PaymentTransactionCreateRequest txReq = PaymentTransactionCreateRequest.builder()
+                    .bookingId(saved.getId())
+                    .bookingCode(saved.getBookingCode())
+                    .paymentType(PaymentType.DEPOSIT.name())
+                    .amount(saved.getDepositAmount())
+                    .status(PaymentStatus.PENDING.name())
+                    .paymentMethodCode(request.getPaymentMethodCode() != null ? request.getPaymentMethodCode() : "VNPAY")
+                    .transactionCode("TXN" + System.currentTimeMillis())
+                    .build();
+            paymentTransactionService.createTransaction(txReq);
+        } catch (Exception ignored) {
+        }
+
         return BookingResponse.fromEntity(saved);
     }
 
     @Override
     @Transactional
-    public void confirmPaymentSuccess(Long bookingId) {
+    public BookingResponse confirmPaymentSuccess(Long bookingId, BookingConfirmDepositRequest request) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Đơn đặt không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Đơn đặt không tồn tại: " + bookingId));
 
-        booking.setStatus("CONFIRMED");
-        booking.getPitchSlot().bookSlot(); // Chuyển slot sang BOOKED chính thức
+        // 1. Chỉ khi thanh toán cọc thành công mới chính thức insert vào bảng booking_services
+        List<ServiceOrderRequest> serviceRequests = (request != null && request.getServices() != null)
+                ? request.getServices()
+                : List.of();
 
-        bookingRepository.save(booking);
-        pitchSlotRepository.save(booking.getPitchSlot());
+        if (!serviceRequests.isEmpty()) {
+            BigDecimal calculatedServiceAmount = BigDecimal.ZERO;
+            for (ServiceOrderRequest itemReq : serviceRequests) {
+                if (itemReq.getServiceId() == null || itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
+                    continue;
+                }
+                ServiceItem sItem = serviceItemRepository.findById(itemReq.getServiceId())
+                        .orElseThrow(() -> new RuntimeException("Dịch vụ không tồn tại: " + itemReq.getServiceId()));
+
+                BigDecimal itemTotal = sItem.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+                calculatedServiceAmount = calculatedServiceAmount.add(itemTotal);
+
+                BookingServiceItem bsi = BookingServiceItem.builder()
+                        .booking(booking)
+                        .service(sItem)
+                        .quantity(itemReq.getQuantity())
+                        .unitPrice(sItem.getPrice()) // Snapshot đơn giá thực tế
+                        .totalPrice(itemTotal)
+                        .build();
+
+                booking.getServices().add(bsi);
+            }
+            booking.setTotalServiceAmount(calculatedServiceAmount);
+            booking.setTotalAmount(booking.getTotalPitchAmount().add(calculatedServiceAmount));
+            booking.setDepositAmount(booking.getTotalAmount().multiply(new BigDecimal("0.30")));
+        }
+
+        // 2. Chuyển trạng thái đơn sang CONFIRMED và khóa ca đá sang BOOKED
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        if (booking.getPitchSlot() != null) {
+            booking.getPitchSlot().bookSlot(); // Chuyển slot sang BOOKED chính thức
+            pitchSlotRepository.save(booking.getPitchSlot());
+        }
+
+        Booking saved = bookingRepository.save(booking);
+
+        // 3. Đặt cọc thành công -> chuyển transaction tương ứng sang SUCCESS
+        try {
+            paymentTransactionService.updateBookingTransactionStatus(saved.getId(), PaymentType.DEPOSIT, PaymentStatus.SUCCESS);
+        } catch (Exception ignored) {
+        }
+
+        return BookingResponse.fromEntity(saved);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse cancelBookingPayment(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Đơn đặt không tồn tại: " + bookingId));
+
+        // 1. Chuyển trạng thái đơn sang CANCELLED
+        booking.setBookingStatus(BookingStatus.CANCELLED);
+
+        // 2. Nhả ca đá về AVAILABLE
+        if (booking.getPitchSlot() != null) {
+            booking.getPitchSlot().releaseSlot();
+            pitchSlotRepository.save(booking.getPitchSlot());
+        }
+
+        Booking saved = bookingRepository.save(booking);
+
+        // 3. Ấn hủy -> chuyển transaction sang FAILED
+        try {
+            paymentTransactionService.updateBookingTransactionStatus(saved.getId(), PaymentType.DEPOSIT, PaymentStatus.FAILED);
+        } catch (Exception ignored) {
+        }
+
+        return BookingResponse.fromEntity(saved);
     }
 }

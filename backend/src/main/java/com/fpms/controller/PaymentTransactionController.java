@@ -1,11 +1,14 @@
 package com.fpms.controller;
 
+import com.fpms.dto.request.PaymentTransactionCreateRequest;
 import com.fpms.dto.response.ApiResponse;
 import com.fpms.dto.response.PaymentTransactionResponse;
 import com.fpms.service.PaymentTransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,5 +41,14 @@ public class PaymentTransactionController {
     public ResponseEntity<ApiResponse<List<PaymentTransactionResponse>>> getTransactionsByBookingId(@PathVariable Long bookingId) {
         List<PaymentTransactionResponse> responses = paymentTransactionService.getTransactionsByBookingId(bookingId);
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử giao dịch theo đơn thành công", responses));
+    }
+
+    @PostMapping
+    @Operation(summary = "Tạo mới giao dịch thanh toán")
+    public ResponseEntity<ApiResponse<PaymentTransactionResponse>> createTransaction(
+            @Valid @RequestBody PaymentTransactionCreateRequest request) {
+        PaymentTransactionResponse response = paymentTransactionService.createTransaction(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created("Tạo giao dịch thanh toán thành công", response));
     }
 }

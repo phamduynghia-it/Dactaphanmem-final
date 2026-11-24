@@ -1,5 +1,6 @@
 package com.fpms.controller;
 
+import com.fpms.dto.request.BookingConfirmDepositRequest;
 import com.fpms.dto.request.BookingCreateRequest;
 import com.fpms.dto.response.ApiResponse;
 import com.fpms.dto.response.BookingResponse;
@@ -52,9 +53,18 @@ public class BookingController {
     }
 
     @PostMapping("/{id}/confirm-payment")
-    @Operation(summary = "Xác nhận thanh toán cọc thành công (webhook/callback)")
-    public ResponseEntity<ApiResponse<String>> confirmPayment(@PathVariable Long id) {
-        bookingService.confirmPaymentSuccess(id);
-        return ResponseEntity.ok(ApiResponse.success("Xác nhận thanh toán đơn đặt sân thành công", "SUCCESS"));
+    @Operation(summary = "Xác nhận thanh toán cọc thành công (mô phỏng cổng thanh toán VNPay) và lưu dịch vụ")
+    public ResponseEntity<ApiResponse<BookingResponse>> confirmPayment(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) BookingConfirmDepositRequest request) {
+        BookingResponse response = bookingService.confirmPaymentSuccess(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Xác nhận thanh toán đơn đặt sân thành công", response));
+    }
+
+    @PostMapping("/{id}/cancel-payment")
+    @Operation(summary = "Hủy giao dịch thanh toán đặt cọc của đơn đặt sân")
+    public ResponseEntity<ApiResponse<BookingResponse>> cancelPayment(@PathVariable Long id) {
+        BookingResponse response = bookingService.cancelBookingPayment(id);
+        return ResponseEntity.ok(ApiResponse.success("Hủy giao dịch thanh toán thành công", response));
     }
 }

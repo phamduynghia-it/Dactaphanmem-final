@@ -1,5 +1,7 @@
 package com.fpms.entity;
 
+import com.fpms.enums.PaymentStatus;
+import com.fpms.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -38,4 +40,21 @@ public class PaymentTransaction {
     @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
     private String status = "PENDING"; // PENDING, SUCCESS, FAILED
+
+    // === DOMAIN HELPER METHODS ===
+    public PaymentType getPaymentTypeEnum() {
+        return PaymentType.from(this.paymentType);
+    }
+
+    public void setPaymentTypeEnum(PaymentType type) {
+        this.paymentType = type != null ? type.name() : PaymentType.DEPOSIT.name();
+    }
+
+    public PaymentStatus getPaymentStatusEnum() {
+        return PaymentStatus.from(this.status);
+    }
+
+    public void setPaymentStatusEnum(PaymentStatus paymentStatus) {
+        this.status = paymentStatus != null ? paymentStatus.name() : PaymentStatus.PENDING.name();
+    }
 }

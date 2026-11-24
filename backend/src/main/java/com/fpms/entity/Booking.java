@@ -1,5 +1,6 @@
 package com.fpms.entity;
 
+import com.fpms.enums.BookingStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -89,5 +90,19 @@ public class Booking {
 
     public void updateStatus(String newStatus) {
         this.status = newStatus;
+    }
+
+    public void updateStatus(BookingStatus newStatus) {
+        if (newStatus != null) {
+            this.status = newStatus.name();
+        }
+    }
+
+    public BookingStatus getBookingStatus() {
+        return BookingStatus.from(this.status);
+    }
+
+    public void setBookingStatus(BookingStatus bookingStatus) {
+        this.status = bookingStatus != null ? bookingStatus.name() : BookingStatus.PENDING_PAYMENT.name();
     }
 }

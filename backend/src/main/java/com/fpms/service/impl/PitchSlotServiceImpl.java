@@ -5,6 +5,7 @@ import com.fpms.entity.Pitch;
 import com.fpms.entity.PitchSlot;
 import com.fpms.entity.PriceMatrix;
 import com.fpms.entity.TimeSlot;
+import com.fpms.enums.PitchSlotStatus;
 import com.fpms.repository.*;
 import com.fpms.service.PitchSlotService;
 import lombok.RequiredArgsConstructor;
@@ -80,7 +81,7 @@ public class PitchSlotServiceImpl implements PitchSlotService {
                     if (existingOpt.isPresent()) {
                         PitchSlot existing = existingOpt.get();
                         // Nếu slot còn trống (AVAILABLE) thì đồng bộ lại giá mới nhất từ price matrix
-                        if ("AVAILABLE".equalsIgnoreCase(existing.getStatus())) {
+                        if (existing.isAvailable() || PitchSlotStatus.AVAILABLE.name().equalsIgnoreCase(existing.getStatus())) {
                             existing.setPrice(price);
                             pitchSlotRepository.save(existing);
                         }
@@ -89,7 +90,7 @@ public class PitchSlotServiceImpl implements PitchSlotService {
                                 .pitch(pitch)
                                 .timeSlot(timeSlot)
                                 .dateslot(curr)
-                                .status("AVAILABLE")
+                                .status(PitchSlotStatus.AVAILABLE.name())
                                 .price(price)
                                 .build();
                         pitchSlotRepository.save(newSlot);
