@@ -11,10 +11,10 @@ import lombok.*;
 @Builder
 public class ServiceOrderRequest {
 
-    @NotNull(message = "serviceId không được để trống")
+    @NotNull(message = "Mã dịch vụ (serviceId) không được để trống")
     private Long serviceId;
 
     @NotNull(message = "Số lượng không được để trống")
-    @Min(value = 1, message = "Số lượng phải từ 1 trở lên")
+    @Min(value = 1, message = "Số lượng dịch vụ phải từ 1 trở lên")
     private Integer quantity;
 }
