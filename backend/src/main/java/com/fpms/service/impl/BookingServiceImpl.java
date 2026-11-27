@@ -1,5 +1,6 @@
 package com.fpms.service.impl;
 
+import com.fpms.dto.request.AdminBookingCreateRequest;
 import com.fpms.dto.request.BookingConfirmDepositRequest;
 import com.fpms.dto.request.BookingCreateRequest;
 import com.fpms.dto.request.PaymentTransactionCreateRequest;
@@ -209,6 +210,100 @@ public class BookingServiceImpl implements BookingService {
             paymentTransactionService.updateBookingTransactionStatus(saved.getId(), PaymentType.DEPOSIT, PaymentStatus.FAILED);
         } catch (Exception ignored) {
         }
+
+        return BookingResponse.fromEntity(saved);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse createAdminBooking(AdminBookingCreateRequest request) {
+        // 1. Kiểm tra ca đá tồn tại và còn trống
+        PitchSlot slot = pitchSlotRepository.findById(request.getPitchSlotId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy ca đá chỉ định"));
+
+        if (!slot.isAvailable()) {
+            throw new RuntimeException("Ca đá này đã được đặt hoặc đang được giữ chỗ!");
+        }
+
+        // 2. Kiểm tra phương thức thanh toán (CASH hoặc BANK_TRANSFER) trong bảng payment_method
+        String methodCode = request.getPaymentMethodCode() != null
+                ? request.getPaymentMethodCode().trim().toUpperCase()
+                : "CASH";
+        if (!"CASH".equals(methodCode) && !"BANK_TRANSFER".equals(methodCode)) {
+            throw new RuntimeException("Phương thức cọc/thanh toán tại quầy chỉ hỗ trợ CASH hoặc BANK_TRANSFER");
+        }
+        PaymentMethod paymentMethod = paymentMethodRepository.findByCode(methodCode)
+                .filter(PaymentMethod::isActive)
+                .orElseThrow(() -> new RuntimeException("Phương thức thanh toán " + methodCode + " chưa tồn tại hoặc đang bị khóa trong bảng payment_method"));
+
+        // 3. Khóa cứng ca đá sang BOOKED ngay lập tức
+        slot.bookSlot();
+        pitchSlotRepository.save(slot);
+
+        // 4. Khởi tạo Booking tại quầy (bookingType = DIRECT, status = CONFIRMED)
+        BigDecimal totalPitchAmount = slot.getPrice();
+        BigDecimal totalServiceAmount = BigDecimal.ZERO;
+
+        Booking booking = Booking.builder()
+                .bookingCode("BK" + System.currentTimeMillis())
+                .pitchSlot(slot)
+                .guestName(request.getGuestName().trim())
+                .guestPhone(request.getGuestPhone().trim())
+                .totalPitchAmount(totalPitchAmount)
+                .bookingType("DIRECT")
+                .status(BookingStatus.CONFIRMED.name())
+                .customerNote(request.getCustomerNote())
+                .build();
+
+        // 5. Nếu có dịch vụ đi kèm -> lưu luôn vào booking_services
+        if (request.getServices() != null && !request.getServices().isEmpty()) {
+            for (ServiceOrderRequest itemReq : request.getServices()) {
+                if (itemReq.getServiceId() == null || itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
+                    continue;
+                }
+                ServiceItem sItem = serviceItemRepository.findById(itemReq.getServiceId())
+                        .orElseThrow(() -> new RuntimeException("Dịch vụ không tồn tại: " + itemReq.getServiceId()));
+
+                BigDecimal itemTotal = sItem.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+                totalServiceAmount = totalServiceAmount.add(itemTotal);
+
+                BookingServiceItem bsi = BookingServiceItem.builder()
+                        .booking(booking)
+                        .service(sItem)
+                        .quantity(itemReq.getQuantity())
+                        .unitPrice(sItem.getPrice())
+                        .totalPrice(itemTotal)
+                        .build();
+                booking.getServices().add(bsi);
+            }
+        }
+
+        booking.setTotalServiceAmount(totalServiceAmount);
+        BigDecimal totalAmount = totalPitchAmount.add(totalServiceAmount);
+        booking.setTotalAmount(totalAmount);
+
+        // 6. Tính tiền cọc / thanh toán (DEPOSIT 30% hoặc FULL 100%)
+        boolean isFullPayment = "FULL".equalsIgnoreCase(request.getPaymentType());
+        PaymentType txType = isFullPayment ? PaymentType.FULL : PaymentType.DEPOSIT;
+        BigDecimal paidAmount = isFullPayment
+                ? totalAmount
+                : totalAmount.multiply(new BigDecimal("0.30"));
+        booking.setDepositAmount(paidAmount);
+
+        Booking saved = bookingRepository.save(booking);
+
+        // 7. Tạo giao dịch thanh toán thành công ngay lập tức (status = SUCCESS)
+        PaymentTransactionCreateRequest txReq = PaymentTransactionCreateRequest.builder()
+                .bookingId(saved.getId())
+                .bookingCode(saved.getBookingCode())
+                .paymentMethodId(paymentMethod.getId())
+                .paymentMethodCode(paymentMethod.getCode())
+                .paymentType(txType.name())
+                .amount(paidAmount)
+                .status(PaymentStatus.SUCCESS.name())
+                .transactionCode("TXN" + System.currentTimeMillis())
+                .build();
+        paymentTransactionService.createTransaction(txReq);
 
         return BookingResponse.fromEntity(saved);
     }

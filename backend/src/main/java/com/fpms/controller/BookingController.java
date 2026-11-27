@@ -1,5 +1,6 @@
 package com.fpms.controller;
 
+import com.fpms.dto.request.AdminBookingCreateRequest;
 import com.fpms.dto.request.BookingConfirmDepositRequest;
 import com.fpms.dto.request.BookingCreateRequest;
 import com.fpms.dto.response.ApiResponse;
@@ -50,6 +51,14 @@ public class BookingController {
         BookingResponse response = bookingService.createBooking(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("Tạo đơn đặt sân thành công", response));
+    }
+
+    @PostMapping("/admin")
+    @Operation(summary = "Admin tạo đơn đặt sân tại quầy (phương thức CASH hoặc BANK_TRANSFER)")
+    public ResponseEntity<ApiResponse<BookingResponse>> createAdminBooking(@Valid @RequestBody AdminBookingCreateRequest request) {
+        BookingResponse response = bookingService.createAdminBooking(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created("Tạo đơn đặt sân tại quầy thành công", response));
     }
 
     @PostMapping("/{id}/confirm-payment")
