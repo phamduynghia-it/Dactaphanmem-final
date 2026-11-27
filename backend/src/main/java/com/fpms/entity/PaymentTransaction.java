@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "payment_transaction")
@@ -40,6 +41,17 @@ public class PaymentTransaction {
     @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
     private String status = "PENDING"; // PENDING, SUCCESS, FAILED
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
 
     // === DOMAIN HELPER METHODS ===
     public PaymentType getPaymentTypeEnum() {

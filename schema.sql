@@ -294,7 +294,8 @@ CREATE TABLE payment_transaction (
     booking_id INT NOT NULL REFERENCES bookings(id),
     payment_type VARCHAR(50) NOT NULL, -- DEPOSIT, FULL, REMAINING, REFUND
     amount NUMERIC(12, 2) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING'
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO payment_transaction (transaction_code, payment_method_id, booking_id, payment_type, amount, status) VALUES

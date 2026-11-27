@@ -4,6 +4,7 @@ import com.fpms.entity.PaymentTransaction;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -18,6 +19,7 @@ public class PaymentTransactionResponse {
     private BigDecimal amount;
     private String paymentType;
     private String status;
+    private LocalDateTime createdAt;
 
     public static PaymentTransactionResponse fromEntity(PaymentTransaction tx) {
         if (tx == null) return null;
@@ -29,6 +31,7 @@ public class PaymentTransactionResponse {
                 .amount(tx.getAmount())
                 .paymentType(tx.getPaymentType())
                 .status(tx.getStatus())
+                .createdAt(tx.getCreatedAt())
                 .build();
     }
 }
