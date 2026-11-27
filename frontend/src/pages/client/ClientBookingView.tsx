@@ -40,7 +40,6 @@ export const ClientBookingView: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
 
   // Modal mô phỏng thanh toán VNPay
   const [showVNPayModal, setShowVNPayModal] = useState(false);
@@ -248,7 +247,6 @@ export const ClientBookingView: React.FC = () => {
       setShowVNPayModal(false);
       setConfirmedBookingData(res);
       setShowSuccessModal(true); // Bật popup thông báo thành công
-      setCreatedBooking(res);
 
       setPendingBooking(null);
       setPendingServicesDto([]);
@@ -337,8 +335,8 @@ export const ClientBookingView: React.FC = () => {
               setSelectedSlot(null);
             }}
             className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-colors shadow-xs ${selectedDate === todayStr
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
+              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
               }`}
           >
             Hôm nay
@@ -354,27 +352,6 @@ export const ClientBookingView: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Success Alert */}
-      {createdBooking && (
-        <div className="p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-sm flex items-center justify-between shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
-            <div>
-              <div className="font-bold text-base">Đặt cọc thành công! Mã đơn: {createdBooking.bookingCode}</div>
-              <div className="text-xs text-emerald-700 mt-0.5">
-                Trạng thái: <strong>ĐÃ XÁC NHẬN (CONFIRMED)</strong>. Ca đá đã được khóa và toàn bộ dịch vụ kèm theo đã được lưu vào cơ sở dữ liệu.
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => setCreatedBooking(null)}
-            className="text-xs font-semibold text-emerald-700 underline px-3 py-1"
-          >
-            Đóng
-          </button>
-        </div>
-      )}
 
       {/* Legend Bar (Chú giải trạng thái) */}
       <div className="flex flex-wrap items-center gap-4 py-2.5 px-4 bg-white rounded-xl border border-gray-200 shadow-xs text-xs text-gray-600">

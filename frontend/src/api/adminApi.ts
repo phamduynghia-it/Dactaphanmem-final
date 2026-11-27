@@ -31,6 +31,16 @@ export const adminApi = {
   getBookingByCode: (code: string) => 
     axiosClient.get<any, Booking>(`/bookings/code/${code}`),
 
+  createAdminBooking: (data: {
+    pitchSlotId: number;
+    guestName: string;
+    guestPhone: string;
+    paymentType: 'DEPOSIT' | 'FULL';
+    paymentMethodCode: 'CASH' | 'BANK_TRANSFER';
+    customerNote?: string;
+    services?: { serviceId: number; quantity: number }[];
+  }) => axiosClient.post<any, Booking>('/bookings/admin', data),
+
   confirmBookingPayment: (id: number, data?: { services?: { serviceId: number; quantity: number }[] }) =>
     axiosClient.post<any, Booking>(`/bookings/${id}/confirm-payment`, data || {}),
 

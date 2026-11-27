@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { Layers, RefreshCw, Plus } from 'lucide-react';
-import { formatDate } from '../../utils/dateUtils';
+import { formatDate, formatDateTimeWithSeconds } from '../../utils/dateUtils';
 
 interface GenericTableViewProps {
   title: string;
@@ -19,8 +19,8 @@ const COLUMN_LABEL_MAP: Record<string, string> = {
   name: 'Tên',
   description: 'Mô tả',
   status: 'Trạng thái',
-  createdAt: 'Ngày tạo',
-  updatedAt: 'Ngày cập nhật',
+  createdAt: 'Thời gian tạo',
+  updatedAt: 'Thời gian cập nhật',
   isActive: 'Trạng thái hoạt động',
 
   // Giao dịch thanh toán (payment_transaction)
@@ -131,6 +131,13 @@ const getDisplayValue = (key: string, val: any): string => {
     if (strVal === 'CASH') return 'Tiền mặt tại quầy';
   }
 
+  // Định dạng thời gian chuẩn từng giây (dd/mm/yyyy HH:mm:ss) cho createdAt, updatedAt, holdExpiresAt
+  if (key === 'createdAt' || key === 'updatedAt' || key === 'holdExpiresAt') {
+    if (typeof val === 'string' && /^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(val)) {
+      return formatDateTimeWithSeconds(val);
+    }
+  }
+
   // Tự động định dạng ngày tháng sang dd/mm/yyyy
   if (
     key.toLowerCase().includes('date') || 
@@ -219,18 +226,21 @@ export const GenericTableView: React.FC<GenericTableViewProps> = ({
             <table className="w-full text-left text-sm text-gray-700">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-semibold border-b border-gray-200">
                 <tr>
-                  {Object.keys(items[0]).map((key) => (
-                    <th key={key} className="px-6 py-4 whitespace-nowrap">
-                      {getColumnLabel(key)}
-                    </th>
-                  ))}
-                  <th className="px-6 py-4 text-right whitespace-nowrap">Thao tác</th>
+                  {Object.keys(items[0])
+                    .filter((key) => key !== 'id')
+                    .map((key) => (
+                      <th key={key} className="px-6 py-4 whitespace-nowrap">
+                        {getColumnLabel(key)}
+                      </th>
+                    ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {items.map((row, idx) => (
                   <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
-                    {Object.keys(items[0]).map((key) => {
+                    {Object.keys(items[0])
+                      .filter((key) => key !== 'id')
+                      .map((key) => {
                       const val = row[key];
                       const isMoney = key.toLowerCase().includes('price') || key.toLowerCase().includes('amount');
 
@@ -288,11 +298,6 @@ export const GenericTableView: React.FC<GenericTableViewProps> = ({
                         </td>
                       );
                     })}
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <button className="text-emerald-600 hover:text-emerald-800 font-medium text-xs">
-                        Chi tiết
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -108,6 +108,7 @@ export interface PaymentTransactionResponse {
   amount: number;
   paymentType: PaymentType;
   status: PaymentStatus;
+  createdAt?: string;
 }
 
 export interface PitchResponse {

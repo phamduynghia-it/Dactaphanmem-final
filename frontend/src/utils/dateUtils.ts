@@ -80,6 +80,32 @@ export const formatDateTime = (
 };
 
 /**
+ * Chuyển đổi chuỗi ngày tháng sang dạng "dd/mm/yyyy HH:mm:ss" (chuẩn từng giây)
+ */
+export const formatDateTimeWithSeconds = (
+  dateInput?: string | Date | number | null,
+  fallback = ''
+): string => {
+  if (!dateInput) return fallback;
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) {
+      return formatDate(dateInput, fallback);
+    }
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  } catch {
+    return fallback;
+  }
+};
+
+/**
  * Lấy thứ trong tuần kết hợp ngày tháng: "Thứ Hai, 25/11/2026"
  */
 export const formatDateWithDayOfWeek = (
