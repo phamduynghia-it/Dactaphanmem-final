@@ -3,6 +3,7 @@ package com.fpms.service.impl;
 import com.fpms.dto.request.AdminBookingCreateRequest;
 import com.fpms.dto.request.BookingConfirmDepositRequest;
 import com.fpms.dto.request.BookingCreateRequest;
+import com.fpms.dto.request.BookingUpdateRequest;
 import com.fpms.dto.request.PaymentTransactionCreateRequest;
 import com.fpms.dto.request.ServiceOrderRequest;
 import com.fpms.dto.response.BookingResponse;
@@ -12,13 +13,18 @@ import com.fpms.enums.PaymentStatus;
 import com.fpms.enums.PaymentType;
 import com.fpms.repository.*;
 import com.fpms.service.BookingService;
+import com.fpms.service.BookingServiceItemService;
 import com.fpms.service.PaymentTransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +38,29 @@ public class BookingServiceImpl implements BookingService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final PaymentTransactionService paymentTransactionService;
+    private final BookingServiceItemService bookingServiceItemService;
+
+    private String generateUniqueCode(String prefix) {
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
+        String randomPart = UUID.randomUUID().toString().replace("-", "").substring(0, 5).toUpperCase();
+        return prefix + datePart + randomPart;
+    }
+
+    /**
+     * Kiểm tra ca đá hợp lệ để đặt: chưa qua giờ kết thúc (endTime) và đang trống (AVAILABLE).
+     */
+    private void validateSlotForBooking(PitchSlot slot) {
+        if (slot.getDateslot() != null && slot.getTimeSlot() != null && slot.getTimeSlot().getEndTime() != null) {
+            LocalDateTime slotEndDateTime = LocalDateTime.of(slot.getDateslot(), slot.getTimeSlot().getEndTime());
+            if (LocalDateTime.now().isAfter(slotEndDateTime)) {
+                throw new RuntimeException("Ca đá này đã qua giờ kết thúc, không thể đặt sân!");
+            }
+        }
+        if (!slot.isAvailable()
+                || bookingRepository.existsByPitchSlotIdAndStatusNot(slot.getId(), BookingStatus.CANCELLED.name())) {
+            throw new RuntimeException("Ca đá này đã được đặt hoặc đang được giữ chỗ!");
+        }
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -61,13 +90,11 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest request) {
-        // 1. Kiểm tra slot sân có khả dụng không
+        // 1. Kiểm tra slot sân chưa qua giờ kết thúc và đang khả dụng
         PitchSlot slot = pitchSlotRepository.findById(request.getPitchSlotId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy ca đá chỉ định"));
 
-        if (!slot.isAvailable()) {
-            throw new RuntimeException("Ca đá này đã được đặt hoặc đang được giữ chỗ!");
-        }
+        validateSlotForBooking(slot);
 
         // 2. Tạm khóa giữ chỗ slot trong 15 phút
         slot.holdSlot(15);
@@ -83,7 +110,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         Booking booking = Booking.builder()
-                .bookingCode("BK" + System.currentTimeMillis())
+                .bookingCode(generateUniqueCode("BK"))
                 .pitchSlot(slot)
                 .customer(customer)
                 .guestName(request.getGuestName() != null ? request.getGuestName() : (customer != null ? customer.getFullName() : "Khách vãng lai"))
@@ -123,7 +150,7 @@ public class BookingServiceImpl implements BookingService {
                     .amount(saved.getDepositAmount())
                     .status(PaymentStatus.PENDING.name())
                     .paymentMethodCode(request.getPaymentMethodCode() != null ? request.getPaymentMethodCode() : "VNPAY")
-                    .transactionCode("TXN" + System.currentTimeMillis())
+                    .transactionCode(generateUniqueCode("TXN"))
                     .build();
             paymentTransactionService.createTransaction(txReq);
         } catch (Exception ignored) {
@@ -217,13 +244,11 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse createAdminBooking(AdminBookingCreateRequest request) {
-        // 1. Kiểm tra ca đá tồn tại và còn trống
+        // 1. Kiểm tra ca đá tồn tại, chưa qua giờ kết thúc và còn trống
         PitchSlot slot = pitchSlotRepository.findById(request.getPitchSlotId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy ca đá chỉ định"));
 
-        if (!slot.isAvailable()) {
-            throw new RuntimeException("Ca đá này đã được đặt hoặc đang được giữ chỗ!");
-        }
+        validateSlotForBooking(slot);
 
         // 2. Kiểm tra phương thức thanh toán (CASH hoặc BANK_TRANSFER) trong bảng payment_method
         String methodCode = request.getPaymentMethodCode() != null
@@ -245,7 +270,7 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalServiceAmount = BigDecimal.ZERO;
 
         Booking booking = Booking.builder()
-                .bookingCode("BK" + System.currentTimeMillis())
+                .bookingCode(generateUniqueCode("BK"))
                 .pitchSlot(slot)
                 .guestName(request.getGuestName().trim())
                 .guestPhone(request.getGuestPhone().trim())
@@ -301,10 +326,54 @@ public class BookingServiceImpl implements BookingService {
                 .paymentType(txType.name())
                 .amount(paidAmount)
                 .status(PaymentStatus.SUCCESS.name())
-                .transactionCode("TXN" + System.currentTimeMillis())
+                .transactionCode(generateUniqueCode("TXN"))
                 .build();
         paymentTransactionService.createTransaction(txReq);
 
         return BookingResponse.fromEntity(saved);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse updateBooking(Long bookingId, BookingUpdateRequest request) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Đơn đặt sân không tồn tại: " + bookingId));
+
+        // Chỉ cho phép sửa khi đơn ở trạng thái CONFIRMED hoặc CHECKED_IN
+        BookingStatus currentStatus = BookingStatus.from(booking.getStatus());
+        if (currentStatus != BookingStatus.CONFIRMED && currentStatus != BookingStatus.CHECKED_IN) {
+            throw new RuntimeException("Chỉ được phép chỉnh sửa đơn khi đang ở trạng thái CONFIRMED hoặc CHECKED_IN!");
+        }
+
+        // 1. Cập nhật thông tin khách hàng & ghi chú (không cho phép đổi ca đá)
+        booking.setGuestName(request.getGuestName().trim());
+        booking.setGuestPhone(request.getGuestPhone().trim());
+        booking.setCustomerNote(request.getCustomerNote());
+
+        booking.calculateTotalAmount();
+        bookingRepository.save(booking);
+
+        // 3. Nếu có truyền danh sách dịch vụ -> gọi sang hàm update 1 của BookingServiceItemService
+        if (request.getServices() != null) {
+            bookingServiceItemService.updateBookingServices(booking.getId(), request.getServices());
+        }
+
+        Booking refreshed = bookingRepository.findById(booking.getId()).orElse(booking);
+        return BookingResponse.fromEntity(refreshed);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse updateSingleBookingService(Long bookingId, ServiceOrderRequest request) {
+        // Gọi sang hàm update 2 của BookingServiceItemService để cập nhật số lượng 1 dịch vụ
+        bookingServiceItemService.updateSingleBookingService(
+                bookingId,
+                request.getServiceId(),
+                request.getQuantity()
+        );
+
+        Booking updated = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Đơn đặt sân không tồn tại: " + bookingId));
+        return BookingResponse.fromEntity(updated);
     }
 }

@@ -3,6 +3,8 @@ package com.fpms.controller;
 import com.fpms.dto.request.AdminBookingCreateRequest;
 import com.fpms.dto.request.BookingConfirmDepositRequest;
 import com.fpms.dto.request.BookingCreateRequest;
+import com.fpms.dto.request.BookingUpdateRequest;
+import com.fpms.dto.request.ServiceOrderRequest;
 import com.fpms.dto.response.ApiResponse;
 import com.fpms.dto.response.BookingResponse;
 import com.fpms.service.BookingService;
@@ -59,6 +61,24 @@ public class BookingController {
         BookingResponse response = bookingService.createAdminBooking(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("Tạo đơn đặt sân tại quầy thành công", response));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Chỉnh sửa thông tin đơn đặt sân & dịch vụ đi kèm (chỉ khi CONFIRMED hoặc CHECKED_IN)")
+    public ResponseEntity<ApiResponse<BookingResponse>> updateBooking(
+            @PathVariable Long id,
+            @Valid @RequestBody BookingUpdateRequest request) {
+        BookingResponse response = bookingService.updateBooking(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật đơn đặt sân thành công", response));
+    }
+
+    @PatchMapping("/{id}/services")
+    @Operation(summary = "Cập nhật số lượng một dịch vụ trong đơn (chỉ khi CONFIRMED hoặc CHECKED_IN)")
+    public ResponseEntity<ApiResponse<BookingResponse>> updateSingleBookingService(
+            @PathVariable Long id,
+            @Valid @RequestBody ServiceOrderRequest request) {
+        BookingResponse response = bookingService.updateSingleBookingService(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật dịch vụ đơn đặt sân thành công", response));
     }
 
     @PostMapping("/{id}/confirm-payment")

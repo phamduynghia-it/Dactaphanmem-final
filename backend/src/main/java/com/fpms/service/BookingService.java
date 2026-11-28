@@ -3,6 +3,8 @@ package com.fpms.service;
 import com.fpms.dto.request.AdminBookingCreateRequest;
 import com.fpms.dto.request.BookingConfirmDepositRequest;
 import com.fpms.dto.request.BookingCreateRequest;
+import com.fpms.dto.request.BookingUpdateRequest;
+import com.fpms.dto.request.ServiceOrderRequest;
 import com.fpms.dto.response.BookingResponse;
 
 import java.util.List;
@@ -13,6 +15,8 @@ public interface BookingService {
     BookingResponse getBookingByCode(String bookingCode);
     BookingResponse createBooking(BookingCreateRequest request);
     BookingResponse createAdminBooking(AdminBookingCreateRequest request);
+    BookingResponse updateBooking(Long bookingId, BookingUpdateRequest request);
+    BookingResponse updateSingleBookingService(Long bookingId, ServiceOrderRequest request);
     BookingResponse confirmPaymentSuccess(Long bookingId, BookingConfirmDepositRequest request);
     BookingResponse cancelBookingPayment(Long bookingId);
 }
