@@ -1,34 +1,34 @@
 import axiosClient from './axiosClient';
-import { 
-  PitchSlot, 
-  Booking, 
-  ServiceItem, 
-  UserResponse, 
-  PaymentTransactionResponse, 
-  PitchResponse, 
-  TimeSlotResponse, 
-  PriceMatrixResponse 
+import {
+  PitchSlot,
+  Booking,
+  ServiceItem,
+  UserResponse,
+  PaymentTransactionResponse,
+  PitchResponse,
+  TimeSlotResponse,
+  PriceMatrixResponse
 } from '../types';
 
 export const adminApi = {
   // 1. Quản lý Ca Đá
-  getPitchSlots: (date?: string) => 
+  getPitchSlots: (date?: string) =>
     axiosClient.get<any, PitchSlot[]>('/pitch-slots', { params: date ? { date } : {} }),
-  
-  getAvailablePitchSlots: (date?: string) => 
+
+  getAvailablePitchSlots: (date?: string) =>
     axiosClient.get<any, PitchSlot[]>('/pitch-slots/available', { params: date ? { date } : {} }),
 
   generatePitchSlots: (days = 30) =>
     axiosClient.post<any, any>(`/pitch-slots/generate?days=${days}`),
 
   // 2. Quản lý Đơn
-  getBookings: () => 
+  getBookings: () =>
     axiosClient.get<any, Booking[]>('/bookings'),
 
-  getBookingById: (id: number) => 
+  getBookingById: (id: number) =>
     axiosClient.get<any, Booking>(`/bookings/${id}`),
 
-  getBookingByCode: (code: string) => 
+  getBookingByCode: (code: string) =>
     axiosClient.get<any, Booking>(`/bookings/code/${code}`),
 
   createAdminBooking: (data: {
@@ -41,6 +41,19 @@ export const adminApi = {
     services?: { serviceId: number; quantity: number }[];
   }) => axiosClient.post<any, Booking>('/bookings/admin', data),
 
+  updateBooking: (
+    id: number,
+    data: {
+      guestName: string;
+      guestPhone: string;
+      customerNote?: string;
+      services?: { serviceId: number; quantity: number }[];
+    }
+  ) => axiosClient.put<any, Booking>(`/bookings/${id}`, data),
+
+  updateSingleBookingService: (id: number, data: { serviceId: number; quantity: number }) =>
+    axiosClient.patch<any, Booking>(`/bookings/${id}/services`, data),
+
   confirmBookingPayment: (id: number, data?: { services?: { serviceId: number; quantity: number }[] }) =>
     axiosClient.post<any, Booking>(`/bookings/${id}/confirm-payment`, data || {}),
 
@@ -48,10 +61,10 @@ export const adminApi = {
     axiosClient.post<any, Booking>(`/bookings/${id}/cancel-payment`),
 
   // 3. Dịch vụ (Hỗ trợ đầy đủ CRUD)
-  getServices: (activeOnly = false) => 
+  getServices: (activeOnly = false) =>
     axiosClient.get<any, ServiceItem[]>('/services', { params: { activeOnly } }),
 
-  getServiceById: (id: number) => 
+  getServiceById: (id: number) =>
     axiosClient.get<any, ServiceItem>(`/services/${id}`),
 
   createService: (data: Partial<ServiceItem>) =>
@@ -70,44 +83,44 @@ export const adminApi = {
     axiosClient.delete<any, void>(`/services/${id}`),
 
   // 4. Giao dịch
-  getTransactions: () => 
+  getTransactions: () =>
     axiosClient.get<any, PaymentTransactionResponse[]>('/payment-transactions'),
 
-  getTransactionById: (id: number) => 
+  getTransactionById: (id: number) =>
     axiosClient.get<any, PaymentTransactionResponse>(`/payment-transactions/${id}`),
 
-  getTransactionsByBookingId: (bookingId: number) => 
+  getTransactionsByBookingId: (bookingId: number) =>
     axiosClient.get<any, PaymentTransactionResponse[]>(`/payment-transactions/booking/${bookingId}`),
 
-  createTransaction: (data: any) => 
+  createTransaction: (data: any) =>
     axiosClient.post<any, PaymentTransactionResponse>('/payment-transactions', data),
 
   // 5. Người dùng
-  getUsers: () => 
+  getUsers: () =>
     axiosClient.get<any, UserResponse[]>('/users'),
 
-  getUserById: (id: number) => 
+  getUserById: (id: number) =>
     axiosClient.get<any, UserResponse>(`/users/${id}`),
 
   // 6. Quản lý Sân
-  getPitches: () => 
+  getPitches: () =>
     axiosClient.get<any, PitchResponse[]>('/pitches'),
 
-  getPitchById: (id: number) => 
+  getPitchById: (id: number) =>
     axiosClient.get<any, PitchResponse>(`/pitches/${id}`),
 
   // 7. Khung giờ
-  getTimeSlots: () => 
+  getTimeSlots: () =>
     axiosClient.get<any, TimeSlotResponse[]>('/time-slots'),
 
-  getTimeSlotById: (id: number) => 
+  getTimeSlotById: (id: number) =>
     axiosClient.get<any, TimeSlotResponse>(`/time-slots/${id}`),
 
   // 8. Bảng giá sân (Chỉ xem GET)
-  getPriceMatrices: () => 
+  getPriceMatrices: () =>
     axiosClient.get<any, PriceMatrixResponse[]>('/price-matrices'),
 
-  getPriceMatricesByPitchType: (pitchTypeId: number) => 
+  getPriceMatricesByPitchType: (pitchTypeId: number) =>
     axiosClient.get<any, PriceMatrixResponse[]>(`/price-matrices/pitch-type/${pitchTypeId}`),
 
   // 9. Loại sân (Chỉ xem GET)
