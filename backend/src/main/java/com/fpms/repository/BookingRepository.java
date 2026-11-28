@@ -15,4 +15,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.customer.id = :customerId")
     List<Booking> findByCustomerId(@Param("customerId") Long customerId);
+
+    boolean existsByPitchSlotIdAndStatusNot(Long pitchSlotId, String status);
 }

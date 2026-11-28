@@ -236,6 +236,11 @@ CREATE TABLE bookings (
     customer_note TEXT
 );
 
+-- Đảm bảo 1 ca đá (pitch_slot_id) chỉ có tối đa 1 đơn đặt đang hoạt động (status <> 'CANCELLED')
+CREATE UNIQUE INDEX uk_bookings_active_pitch_slot
+    ON bookings (pitch_slot_id)
+    WHERE status <> 'CANCELLED';
+
 INSERT INTO bookings (booking_code, pitch_slot_id, customer_id, guest_name, guest_phone, deposit_amount, booking_type, total_pitch_amount, status, total_service_amount, total_amount, customer_note) VALUES
     ('BK2026112501', 1, 4, 'Nguyễn Văn Khách', '0912345678', 60000.00, 'ONLINE', 200000.00, 'CONFIRMED', 0.00, 200000.00, 'Cần mượn thêm bơm bóng'),
     ('BK2026112502', 2, 5, 'Hoàng Minh Tuấn', '0987654321', 120000.00, 'ONLINE', 350000.00, 'CONFIRMED', 50000.00, 400000.00, 'Yêu cầu áo bib màu xanh lá cây'),

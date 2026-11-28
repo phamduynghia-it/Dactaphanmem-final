@@ -1,6 +1,7 @@
 package com.fpms.config;
 
 import com.fpms.dto.response.ApiResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
@@ -76,6 +77,20 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
+     * Bắt lỗi vi phạm ràng buộc toàn vẹn dữ liệu (unique index, foreign key...)
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        if (msg != null && msg.contains("uk_bookings_active_pitch_slot")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.badRequest("Ca đá này đã có đơn đặt đang hoạt động, vui lòng chọn ca khác!"));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.badRequest("Dữ liệu vi phạm ràng buộc hệ thống (trùng lặp hoặc không hợp lệ)."));
     }
 
     /**
