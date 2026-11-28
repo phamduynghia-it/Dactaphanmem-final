@@ -3,7 +3,8 @@ import axiosClient from '../../api/axiosClient';
 import { adminApi } from '../../api/adminApi';
 import { Booking, PitchResponse, PitchSlot, ServiceItem } from '../../types';
 import { toast } from '../../utils/toast';
-import { RefreshCw, Plus, Search, X, ChevronLeft, ChevronRight, Check, Banknote, Landmark } from 'lucide-react';
+import { formatDate } from '../../utils/dateUtils';
+import { RefreshCw, Plus, Search, X, ChevronLeft, ChevronRight, Check, Banknote, Landmark, Eye, Calendar, ShoppingBag, User } from 'lucide-react';
 
 export const BookingsView: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
@@ -11,6 +12,10 @@ export const BookingsView: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // State cho Modal Xem Chi Tiết Đơn
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
 
   // State cho Modal Tạo Đơn Tại Quầy (3 bước)
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -47,6 +52,18 @@ export const BookingsView: React.FC = () => {
     fetchBookings();
   }, []);
 
+  const handleViewDetail = async (bookingId: number) => {
+    setLoadingDetailId(bookingId);
+    try {
+      const detail = await adminApi.getBookingById(bookingId);
+      setDetailBooking(detail);
+    } catch {
+      // axiosClient đã tự động hiển thị toast.error nếu có lỗi
+    } finally {
+      setLoadingDetailId(null);
+    }
+  };
+
   // Load danh sách sân và dịch vụ đang hoạt động khi mở modal
   useEffect(() => {
     if (!showCreateModal) return;
@@ -57,13 +74,13 @@ export const BookingsView: React.FC = () => {
           setSelectedPitchId(res[0].id);
         }
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     adminApi.getServices(true).then((res) => {
       if (Array.isArray(res)) {
         setServicesList(res);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, [showCreateModal]);
 
   // Load các ca đá trống theo ngày đã chọn
@@ -241,7 +258,6 @@ export const BookingsView: React.FC = () => {
                 <th className="px-6 py-4">Số Điện Thoại</th>
                 <th className="px-6 py-4">Hình Thức</th>
                 <th className="px-6 py-4">Tổng Tiền</th>
-                <th className="px-6 py-4">Đã Cọc / Thu</th>
                 <th className="px-6 py-4">Trạng Thái</th>
                 <th className="px-6 py-4 text-right">Thao Tác</th>
               </tr>
@@ -249,7 +265,7 @@ export const BookingsView: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {filteredBookings.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                     Chưa có đơn đặt sân nào trong hệ thống.
                   </td>
                 </tr>
@@ -260,33 +276,33 @@ export const BookingsView: React.FC = () => {
                   <td className="px-6 py-4 font-medium text-gray-900">{b.guestName}</td>
                   <td className="px-6 py-4 text-gray-600">{b.guestPhone}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                      b.bookingType === 'DIRECT'
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${b.bookingType === 'DIRECT'
                         ? 'bg-purple-100 text-purple-800'
                         : 'bg-gray-100 text-gray-700'
-                    }`}>
+                      }`}>
                       {b.bookingType === 'DIRECT' ? 'TẠI QUẦY' : b.bookingType}
                     </span>
                   </td>
                   <td className="px-6 py-4 font-bold text-gray-900">
                     {b.totalAmount.toLocaleString('vi-VN')} đ
                   </td>
-                  <td className="px-6 py-4 font-medium text-emerald-600">
-                    {b.depositAmount.toLocaleString('vi-VN')} đ
-                  </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                      b.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' :
-                      b.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
-                      b.status === 'PENDING_PAYMENT' ? 'bg-amber-100 text-amber-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${b.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' :
+                        b.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                          b.status === 'PENDING_PAYMENT' ? 'bg-amber-100 text-amber-800' :
+                            'bg-red-100 text-red-800'
+                      }`}>
                       {b.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button className="text-emerald-600 hover:text-emerald-800 font-medium text-xs">
-                      Xử lý
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => handleViewDetail(b.id)}
+                      disabled={loadingDetailId === b.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs transition-colors disabled:opacity-60"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{loadingDetailId === b.id ? 'Đang tải...' : 'Xem chi tiết'}</span>
                     </button>
                   </td>
                 </tr>
@@ -327,29 +343,26 @@ export const BookingsView: React.FC = () => {
                   <React.Fragment key={item.step}>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center font-bold transition-colors ${
-                          isDone
+                        className={`w-6 h-6 rounded-full flex items-center justify-center font-bold transition-colors ${isDone
                             ? 'bg-emerald-600 text-white'
                             : isActive
-                            ? 'bg-emerald-700 text-white ring-4 ring-emerald-100'
-                            : 'bg-gray-200 text-gray-500'
-                        }`}
+                              ? 'bg-emerald-700 text-white ring-4 ring-emerald-100'
+                              : 'bg-gray-200 text-gray-500'
+                          }`}
                       >
                         {isDone ? <Check className="w-3.5 h-3.5" /> : item.step}
                       </span>
                       <span
-                        className={`font-semibold ${
-                          isActive || isDone ? 'text-emerald-900' : 'text-gray-400'
-                        }`}
+                        className={`font-semibold ${isActive || isDone ? 'text-emerald-900' : 'text-gray-400'
+                          }`}
                       >
                         {item.label}
                       </span>
                     </div>
                     {idx < 2 && (
                       <div
-                        className={`flex-1 h-0.5 mx-2 rounded ${
-                          currentStep > item.step ? 'bg-emerald-500' : 'bg-gray-200'
-                        }`}
+                        className={`flex-1 h-0.5 mx-2 rounded ${currentStep > item.step ? 'bg-emerald-500' : 'bg-gray-200'
+                          }`}
                       />
                     )}
                   </React.Fragment>
@@ -437,8 +450,8 @@ export const BookingsView: React.FC = () => {
                         {loadingSlots
                           ? 'Đang tải khung giờ trống...'
                           : filteredSlots.length === 0
-                          ? '-- Không có khung giờ trống --'
-                          : '-- Chọn khung giờ trống --'}
+                            ? '-- Không có khung giờ trống --'
+                            : '-- Chọn khung giờ trống --'}
                       </option>
                       {filteredSlots.map((slot) => (
                         <option key={slot.id} value={slot.id}>
@@ -622,11 +635,10 @@ export const BookingsView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setPaymentMethodCode('CASH')}
-                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${
-                          paymentMethodCode === 'CASH'
+                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${paymentMethodCode === 'CASH'
                             ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20'
                             : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                        }`}
+                          }`}
                       >
                         <Banknote className="w-5 h-5 text-emerald-600 shrink-0" />
                         <div>
@@ -638,11 +650,10 @@ export const BookingsView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setPaymentMethodCode('BANK_TRANSFER')}
-                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${
-                          paymentMethodCode === 'BANK_TRANSFER'
+                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${paymentMethodCode === 'BANK_TRANSFER'
                             ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20'
                             : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                        }`}
+                          }`}
                       >
                         <Landmark className="w-5 h-5 text-emerald-600 shrink-0" />
                         <div>
@@ -673,6 +684,168 @@ export const BookingsView: React.FC = () => {
                 </div>
               )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xem Chi Tiết Đơn (Ca đá & Dịch vụ đi kèm) */}
+      {detailBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-bold text-gray-900">Chi Tiết Đơn Đặt Sân</h2>
+                <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  {detailBooking.bookingCode}
+                </span>
+              </div>
+              <button
+                onClick={() => setDetailBooking(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto text-sm">
+              {/* Thông tin khách hàng */}
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-500">
+                  <User className="w-4 h-4 text-emerald-600" />
+                  <span>Thông tin khách hàng</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                  <div>
+                    <span className="text-gray-500">Khách hàng:</span>{' '}
+                    <strong className="text-gray-900">{detailBooking.guestName || detailBooking.customerName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Số điện thoại:</span>{' '}
+                    <strong className="text-gray-900">{detailBooking.guestPhone}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Hình thức:</span>{' '}
+                    <strong className="text-gray-900">
+                      {detailBooking.bookingType === 'DIRECT' ? 'Tại quầy' : detailBooking.bookingType}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Trạng thái:</span>{' '}
+                    <strong className="text-emerald-700">{detailBooking.status}</strong>
+                  </div>
+                </div>
+                {detailBooking.customerNote && (
+                  <div className="text-xs text-gray-600 pt-1 border-t border-gray-200">
+                    <span className="text-gray-500">Ghi chú:</span> {detailBooking.customerNote}
+                  </div>
+                )}
+              </div>
+
+              {/* Thông tin Ca Đá */}
+              <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span>Thông tin ca đá</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                  <div>
+                    <span className="text-gray-600">Sân bóng:</span>{' '}
+                    <strong className="text-gray-900">{detailBooking.pitchName || '—'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Ngày đá:</span>{' '}
+                    <strong className="text-gray-900">
+                      {detailBooking.dateslot ? formatDate(detailBooking.dateslot) : '—'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Khung giờ:</span>{' '}
+                    <strong className="text-gray-900">
+                      {detailBooking.startTime && detailBooking.endTime
+                        ? `${String(detailBooking.startTime).slice(0, 5)} - ${String(detailBooking.endTime).slice(0, 5)}`
+                        : '—'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Tiền sân:</span>{' '}
+                    <strong className="text-emerald-700">
+                      {(detailBooking.totalPitchAmount || 0).toLocaleString('vi-VN')} đ
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thông tin Dịch vụ đi kèm */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-500">
+                    <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                    <span>Dịch vụ đi kèm</span>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-700">
+                    Tổng dịch vụ: {(detailBooking.totalServiceAmount || 0).toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+
+                {!detailBooking.services || detailBooking.services.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                    Đơn này không có dịch vụ đi kèm.
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-gray-50 text-gray-500 uppercase border-b border-gray-200">
+                        <tr>
+                          <th className="px-3.5 py-2.5">Tên dịch vụ</th>
+                          <th className="px-3.5 py-2.5 text-center">SL</th>
+                          <th className="px-3.5 py-2.5 text-right">Đơn giá</th>
+                          <th className="px-3.5 py-2.5 text-right">Thành tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {detailBooking.services.map((srv: any, idx: number) => (
+                          <tr key={srv.id || idx}>
+                            <td className="px-3.5 py-2.5 font-medium text-gray-900">
+                              {srv.serviceName}
+                              {srv.unit ? <span className="text-gray-400"> ({srv.unit})</span> : null}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-center font-semibold">{srv.quantity}</td>
+                            <td className="px-3.5 py-2.5 text-right text-gray-600">
+                              {Number(srv.unitPrice || 0).toLocaleString('vi-VN')} đ
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right font-bold text-gray-900">
+                              {Number(srv.totalPrice || 0).toLocaleString('vi-VN')} đ
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Tổng cộng */}
+              <div className="p-3.5 bg-gray-900 text-white rounded-xl flex items-center justify-between text-xs">
+                <span>
+                  Đã cọc / thu: <strong>{(detailBooking.depositAmount || 0).toLocaleString('vi-VN')} đ</strong>
+                </span>
+                <span className="text-sm">
+                  Tổng tiền đơn:{' '}
+                  <strong className="text-emerald-400">
+                    {(detailBooking.totalAmount || 0).toLocaleString('vi-VN')} đ
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            <div className="px-6 py-3.5 border-t border-gray-100 flex justify-end shrink-0">
+              <button
+                onClick={() => setDetailBooking(null)}
+                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}
